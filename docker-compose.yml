@@ -1,0 +1,57 @@
+# Calibration Log — production-style stack: PostgreSQL + FastAPI backend + nginx/React frontend.
+#   cp .env.example .env   (edit it)   then:   docker compose up -d --build
+name: calibration-dashboard
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-calibration}
+      POSTGRES_USER: ${POSTGRES_USER:-calibration}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${TZ:-UTC}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Not published to the network on purpose. Uncomment only if IT needs direct access:
+    # ports: ["127.0.0.1:5432:5432"]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-calibration}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-calibration}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (openssl rand -hex 32)}
+      UPLOAD_DIR: /data/uploads
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      REGISTRATION_ALLOWED_EMAIL_DOMAINS: ${REGISTRATION_ALLOWED_EMAIL_DOMAINS:-}
+      TOTP_ISSUER: ${TOTP_ISSUER:-Calibration Log}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - uploads:/data/uploads
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      # branding (logo, company name, footer text) — edit this file, no rebuild needed
+      - ./frontend/public/config.js:/usr/share/nginx/html/config.js:ro
+
+volumes:
+  pgdata:
+  uploads:
