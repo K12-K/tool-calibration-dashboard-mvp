@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Eye, FilterX, Pencil, Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/endpoints";
 import type { Gauge, ListParams } from "../api/types";
 import ColumnFilter from "../components/ColumnFilter";
@@ -67,12 +67,20 @@ function renderCell(col: ColumnDef, g: Gauge) {
 
 export default function DatabasePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [notice] = useState<string | null>(() => (location.state as { notice?: string } | null)?.notice ?? null);
   const [state, setState] = useState<ListParams>(loadState);
   const [qInput, setQInput] = useState(state.q);
 
   useEffect(() => {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  // clear the one-time "saved" message from the history entry so it does not reappear on refresh
+  useEffect(() => {
+    if (notice) navigate(location.pathname, { replace: true, state: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // debounce the global search box
   useEffect(() => {
@@ -127,6 +135,7 @@ export default function DatabasePage() {
         <span className="muted toolbar-right">{isFetching ? "Updating…" : `${data?.total ?? 0} entries`}</span>
       </div>
 
+      {notice && <div className="alert alert-success">{notice}</div>}
       {isError && <div className="alert alert-error">{error instanceof Error ? error.message : "Failed to load"}</div>}
 
       <div className="table-wrap">

@@ -13,8 +13,9 @@ Web application to track gauge / instrument calibrations (built from `Calibratio
 ## Pages (mirrors the Excel sheets)
 
 1. **Database table (home)** – all entries, *Add New Entry* button, Excel-style column menus (sort newest/oldest or A–Z, searchable value checklist), global search, pagination, **View** / **Edit** on every row (clicking a row opens it for editing).
-2. **Form** – ASSET #, DESCRIPTION, MANUFACTURER, S/N, GAUGE CODE, LOCATION, STATUS, DATE OF CALIBRATION, FREQUENCY, DUE DATE and DAYS LEFT (auto), COMMENTS, up to 3 calibration-certificate PDFs, up to 5 images. PDFs/images open in a pop-up and can be downloaded.
-3. **Reports** (the "DASHBOARD" sheet) – calibrations due in the next N days (default 10), past-due calibrations, status breakdown, CSV export and print.
+2. **Form** – ASSET #, DESCRIPTION, MANUFACTURER, S/N, GAUGE CODE, LOCATION, STATUS, DATE OF CALIBRATION, FREQUENCY, DUE DATE and DAYS LEFT (auto), COMMENTS, up to 3 calibration-certificate PDFs (each with an editable tag; the default tag **LATEST CERT** can be on one PDF only and can be moved; PDFs can be reordered), up to 5 images. Saving returns you to the database page. PDFs/images open in a pop-up and can be downloaded.
+3. **Usage Log** – history of who used which gauge: Employee ID, gauge (Asset #), start and end time. Newest first, filtered by a From/To date picker (maximum 2 months), *Add Log* button.
+4. **Reports** (the "DASHBOARD" sheet) – calibrations due in the next N days (default 10), past-due calibrations, status breakdown, CSV export and print.
 
 ## Quick start – everything in Docker (recommended)
 

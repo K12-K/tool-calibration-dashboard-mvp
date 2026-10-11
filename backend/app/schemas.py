@@ -2,9 +2,9 @@ import re
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .constants import LOCATIONS, STATUSES
+from .constants import LOCATIONS, MAX_TAG_LENGTH, STATUSES, normalize_tag
 
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._/\-]*$")  # "alpha numeric" (+ common separators)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -85,7 +85,25 @@ class AttachmentOut(BaseModel):
     original_name: str
     content_type: str
     size_bytes: int
+    tag: str | None
+    sort_order: int
     uploaded_at: datetime
+
+
+class AttachmentTagIn(BaseModel):
+    tag: str | None = Field(default=None, max_length=MAX_TAG_LENGTH + 50)
+
+    @field_validator("tag")
+    @classmethod
+    def _tag(cls, v: str | None) -> str | None:
+        tag = normalize_tag(v)
+        if tag is not None and len(tag) > MAX_TAG_LENGTH:
+            raise ValueError(f"Tag can be at most {MAX_TAG_LENGTH} characters")
+        return tag
+
+
+class CertOrderIn(BaseModel):
+    ids: list[int] = Field(max_length=50)
 
 
 class GaugeOut(BaseModel):
@@ -123,6 +141,65 @@ class ColumnValues(BaseModel):
     values: list[str]
     has_blank: bool
     truncated: bool
+
+
+# ---------------------------------------------------------------- usage log
+class UsageLogIn(BaseModel):
+    employee_id: str = Field(min_length=1, max_length=50)
+    gauge_id: int
+    start_time: datetime
+    end_time: datetime
+
+    @field_validator("employee_id", mode="before")
+    @classmethod
+    def _strip_emp(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("employee_id")
+    @classmethod
+    def _emp_ok(cls, v: str) -> str:
+        if not ID_RE.match(v):
+            raise ValueError("Employee ID may contain only letters, numbers, spaces and . _ / -")
+        return v
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _aware(cls, v: datetime) -> datetime:
+        if v.tzinfo is None:
+            raise ValueError("Time must include a time zone")
+        return v
+
+    @model_validator(mode="after")
+    def _order(self):
+        if self.end_time <= self.start_time:
+            raise ValueError("End time must be after the start time")
+        return self
+
+
+class UsageLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    employee_id: str
+    gauge_id: int | None
+    asset_no: str
+    description: str | None
+    start_time: datetime
+    end_time: datetime
+    duration_minutes: int
+    created_at: datetime
+
+
+class UsageLogList(BaseModel):
+    items: list[UsageLogOut]
+    total: int
+    page: int
+    page_size: int
+
+
+class GaugeOption(BaseModel):
+    id: int
+    asset_no: str
+    description: str | None
 
 
 # ---------------------------------------------------------------- reports

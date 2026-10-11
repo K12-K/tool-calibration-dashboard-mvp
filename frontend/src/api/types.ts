@@ -11,6 +11,8 @@ export interface Attachment {
   original_name: string;
   content_type: string;
   size_bytes: number;
+  tag: string | null;
+  sort_order: number;
   uploaded_at: string;
 }
 
@@ -99,4 +101,36 @@ export interface ListParams {
   q: string;
   filters: Record<string, string[]>;
   contains: Record<string, string>;
+}
+
+export interface UsageLog {
+  id: number;
+  employee_id: string;
+  gauge_id: number | null;
+  asset_no: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
+  created_at: string;
+}
+
+export interface UsageLogList {
+  items: UsageLog[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface UsageLogInput {
+  employee_id: string;
+  gauge_id: number;
+  start_time: string; // ISO instant
+  end_time: string; // ISO instant
+}
+
+export interface GaugeOption {
+  id: number;
+  asset_no: string;
+  description: string | null;
 }

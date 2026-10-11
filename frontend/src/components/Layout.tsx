@@ -1,4 +1,4 @@
-import { Database, BarChart3, LogOut } from "lucide-react";
+import { ClipboardList, Database, BarChart3, LogOut } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { config } from "../config";
@@ -40,6 +40,9 @@ export default function Layout() {
         </NavLink>
         <NavLink to="/reports" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
           <BarChart3 size={16} /> Reports
+        </NavLink>
+        <NavLink to="/usage-log" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+          <ClipboardList size={16} /> Usage Log
         </NavLink>
       </nav>
       <main className="app-main">

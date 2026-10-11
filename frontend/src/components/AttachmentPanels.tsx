@@ -1,9 +1,10 @@
-import { Download, Eye, FileText, ImagePlus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Eye, FileText, ImagePlus, Star, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { api } from "../api/endpoints";
 import type { Attachment } from "../api/types";
 import { formatBytes, formatDateTime } from "../utils/date";
+import { isLatest } from "../utils/certTags";
 import { downloadAttachment } from "./FilePreview";
 
 export interface Staged {
@@ -135,9 +136,33 @@ export function ImagesPanel(p: CommonProps) {
   );
 }
 
-export function CertificatesPanel(p: CommonProps) {
+export interface CertItem {
+  key: string; // "a:<id>" for saved files, "s:<key>" for files not saved yet
+  name: string;
+  size: number;
+  uploadedAt?: string;
+  attachmentId?: number;
+  file?: File;
+}
+
+interface CertPanelProps {
+  readOnly: boolean;
+  max: number;
+  maxBytes: number;
+  items: CertItem[]; // already in display order
+  tags: Record<string, string>;
+  errors: string[];
+  onAdd: (files: File[]) => void;
+  onTagChange: (key: string, value: string) => void;
+  onMakeLatest: (key: string) => void;
+  onMove: (key: string, dir: -1 | 1) => void;
+  onRemove: (key: string) => void;
+  onPreview: (key: string) => void;
+}
+
+export function CertificatesPanel(p: CertPanelProps) {
   const picker = useFilePicker(p.onAdd);
-  const total = p.existing.length + p.staged.length;
+  const total = p.items.length;
   return (
     <section className="panel">
       <div className="panel-head">
@@ -151,37 +176,60 @@ export function CertificatesPanel(p: CommonProps) {
           </>
         )}
       </div>
-      {!p.readOnly && <p className="hint">Keeps the last {p.max} certificates, PDF only, each max {formatBytes(p.maxBytes)}. The newest is the current one.</p>}
+      {!p.readOnly && (
+        <p className="hint">
+          Keeps the last {p.max} certificates, PDF only, each max {formatBytes(p.maxBytes)}. Give each PDF a tag; the
+          LATEST CERT tag can be on one PDF only and can be moved to any PDF. Use the arrows to change the order.
+        </p>
+      )}
       {p.errors.map((e) => <div key={e} className="alert alert-error">{e}</div>)}
       {total === 0 && <div className="empty-box">No certificate uploaded</div>}
       <ul className="file-list">
-        {p.staged.map((s, i) => (
-          <li key={s.key}>
-            <FileText size={18} />
-            <div className="file-meta">
-              <strong>{s.file.name}</strong>
-              <span className="muted">{formatBytes(s.file.size)} · not saved yet</span>
-            </div>
-            <span className="badge st-ok">{i === 0 ? "Current (new)" : "New"}</span>
-            <button type="button" className="icon-btn" onClick={() => p.onPreviewStaged(s)} aria-label="View"><Eye size={16} /></button>
-            {!p.readOnly && <button type="button" className="icon-btn" onClick={() => p.onRemoveStaged(s.key)} aria-label="Remove"><Trash2 size={16} /></button>}
-          </li>
-        ))}
-        {p.existing.map((a, i) => (
-          <li key={a.id}>
-            <FileText size={18} />
-            <div className="file-meta">
-              <strong>{a.original_name}</strong>
-              <span className="muted">{formatBytes(a.size_bytes)} · {formatDateTime(a.uploaded_at)}</span>
-            </div>
-            <span className={`badge ${i === 0 && p.staged.length === 0 ? "st-ok" : "st-info"}`}>
-              {i === 0 && p.staged.length === 0 ? "Current" : "Previous"}
-            </span>
-            <button type="button" className="icon-btn" onClick={() => p.onPreviewExisting(a)} aria-label="View"><Eye size={16} /></button>
-            <button type="button" className="icon-btn" onClick={() => downloadAttachment(a.id, a.original_name)} aria-label="Download"><Download size={16} /></button>
-            {!p.readOnly && <button type="button" className="icon-btn" onClick={() => p.onRemoveExisting(a.id)} aria-label="Delete"><Trash2 size={16} /></button>}
-          </li>
-        ))}
+        {p.items.map((it, i) => {
+          const tag = p.tags[it.key] ?? "";
+          const latest = isLatest(tag);
+          return (
+            <li key={it.key}>
+              <FileText size={18} />
+              <div className="file-meta">
+                <strong>{it.name}</strong>
+                <span className="muted">
+                  {formatBytes(it.size)} · {it.uploadedAt ? formatDateTime(it.uploadedAt) : "not saved yet"}
+                </span>
+              </div>
+              {p.readOnly ? (
+                tag.trim() ? <span className={`badge ${latest ? "st-ok" : "st-info"}`}>{tag.trim()}</span> : <span className="muted">No tag</span>
+              ) : (
+                <div className="tag-cell">
+                  <input
+                    className={`tag-input${latest ? " is-latest" : ""}`}
+                    value={tag}
+                    maxLength={100}
+                    placeholder="Tag (e.g. 2025 cert)"
+                    aria-label="Certificate tag"
+                    onChange={(e) => p.onTagChange(it.key, e.target.value)}
+                  />
+                  {!latest && (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => p.onMakeLatest(it.key)} title="Move the LATEST CERT tag to this PDF">
+                      <Star size={14} /> Make LATEST CERT
+                    </button>
+                  )}
+                </div>
+              )}
+              {!p.readOnly && (
+                <>
+                  <button type="button" className="icon-btn" onClick={() => p.onMove(it.key, -1)} disabled={i === 0} aria-label="Move up" title="Move up"><ChevronUp size={16} /></button>
+                  <button type="button" className="icon-btn" onClick={() => p.onMove(it.key, 1)} disabled={i === p.items.length - 1} aria-label="Move down" title="Move down"><ChevronDown size={16} /></button>
+                </>
+              )}
+              <button type="button" className="icon-btn" onClick={() => p.onPreview(it.key)} aria-label="View"><Eye size={16} /></button>
+              {it.attachmentId !== undefined && (
+                <button type="button" className="icon-btn" onClick={() => downloadAttachment(it.attachmentId as number, it.name)} aria-label="Download"><Download size={16} /></button>
+              )}
+              {!p.readOnly && <button type="button" className="icon-btn" onClick={() => p.onRemove(it.key)} aria-label="Delete"><Trash2 size={16} /></button>}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

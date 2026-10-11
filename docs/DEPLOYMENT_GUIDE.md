@@ -151,7 +151,7 @@ authenticator secrets – protect the destination.
 # copy the new project files over the old ones (keep .env and frontend/public/config.js)
 docker compose up -d --build
 ```
-Tables are created automatically but not migrated. If a future version changes the schema, it will ship with a migration note.
+New tables are created automatically, and the few columns added since v1.0 (certificate tag / order) are added to an existing database on startup, keeping existing data (the newest certificate of each gauge becomes LATEST CERT). Always take a backup first.
 
 ### Logs and health
 `docker compose logs --tail=200 backend` · `docker compose logs --tail=200 web` · `GET /api/health`.

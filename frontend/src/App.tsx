@@ -7,6 +7,7 @@ import GaugeFormPage from "./pages/GaugeFormPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ReportsPage from "./pages/ReportsPage";
+import UsageLogPage from "./pages/UsageLogPage";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="gauges/:id" element={<GaugeFormPage key="view" mode="view" />} />
           <Route path="gauges/:id/edit" element={<GaugeFormPage key="edit" mode="edit" />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="usage-log" element={<UsageLogPage />} />
         </Route>
       </Route>
 

@@ -35,6 +35,7 @@ def init_db(retries: int = 20, delay: float = 2.0) -> None:
                 conn.execute(text("SELECT pg_advisory_lock(727001)"))
                 try:
                     Base.metadata.create_all(conn)
+                    _light_migrations(conn)
                     conn.commit()
                 finally:
                     conn.execute(text("SELECT pg_advisory_unlock(727001)"))
@@ -45,3 +46,36 @@ def init_db(retries: int = 20, delay: float = 2.0) -> None:
             if attempt == retries:
                 raise
             time.sleep(delay)
+
+
+def _light_migrations(conn) -> None:
+    """create_all never alters existing tables, so add columns introduced after v1.0 here.
+    Idempotent: runs its statements only when the column is missing."""
+    cols = {
+        r[0]
+        for r in conn.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'attachments' AND table_schema = current_schema()"
+            )
+        )
+    }
+    if "tag" not in cols:
+        conn.execute(text("ALTER TABLE attachments ADD COLUMN tag VARCHAR(100)"))
+        # keep the old meaning: the newest certificate of each gauge was the "current" one
+        conn.execute(
+            text(
+                "UPDATE attachments a SET tag = 'LATEST CERT' FROM ("
+                " SELECT DISTINCT ON (gauge_id) id FROM attachments WHERE kind = 'certificate'"
+                " ORDER BY gauge_id, uploaded_at DESC, id DESC) l WHERE a.id = l.id"
+            )
+        )
+    if "sort_order" not in cols:
+        conn.execute(text("ALTER TABLE attachments ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"))
+        conn.execute(
+            text(
+                "UPDATE attachments a SET sort_order = r.rn FROM ("
+                " SELECT id, row_number() OVER (PARTITION BY gauge_id ORDER BY uploaded_at DESC, id DESC) - 1 AS rn"
+                " FROM attachments WHERE kind = 'certificate') r WHERE a.id = r.id"
+            )
+        )

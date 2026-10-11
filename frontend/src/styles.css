@@ -227,6 +227,15 @@ textarea { resize: vertical; }
 .inline-field { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
 .inline-field input { width: 70px; padding: 6px 8px; border: 1px solid var(--blue-300); border-radius: 6px; }
 
+/* ---------- certificate tags / usage log ---------- */
+.file-list li { flex-wrap: wrap; }
+.tag-cell { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tag-input { width: 170px; padding: 5px 8px; border: 1px solid var(--blue-300); border-radius: 6px; background: #fff; font: inherit; }
+.tag-input:focus { outline: 2px solid var(--blue-600); outline-offset: -1px; }
+.tag-input.is-latest { border-color: var(--ok); background: #e8f6ee; font-weight: 700; color: #166b44; }
+.icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.date-input { padding: 6px 8px; border: 1px solid var(--blue-300); border-radius: 6px; background: #fff; }
+
 @media print {
   .app-nav, .app-footer, .no-print, .header-user { display: none !important; }
   body { background: #fff; }

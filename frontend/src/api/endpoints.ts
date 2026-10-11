@@ -6,10 +6,14 @@ import type {
   GaugeDetail,
   GaugeInput,
   GaugeList,
+  GaugeOption,
   ListParams,
   Options,
   RegisterResult,
   TokenResult,
+  UsageLog,
+  UsageLogInput,
+  UsageLogList,
   User,
 } from "./types";
 
@@ -48,14 +52,27 @@ export const api = {
   deleteGauge: (id: number) => request<void>(`/gauges/${id}`, { method: "DELETE" }),
 
   // attachments
-  uploadAttachment: (gaugeId: number, kind: "image" | "certificate", file: File) => {
+  uploadAttachment: (gaugeId: number, kind: "image" | "certificate", file: File, tag?: string | null) => {
     const form = new FormData();
     form.append("file", file);
+    if (tag) form.append("tag", tag);
     return request<Attachment>(`/gauges/${gaugeId}/attachments`, { method: "POST", query: { kind }, form });
   },
+  updateAttachmentTag: (id: number, tag: string | null) =>
+    request<Attachment>(`/attachments/${id}`, { method: "PATCH", body: { tag } }),
+  reorderCertificates: (gaugeId: number, ids: number[]) =>
+    request<void>(`/gauges/${gaugeId}/certificates/order`, { method: "PUT", body: { ids } }),
   deleteAttachment: (id: number) => request<void>(`/attachments/${id}`, { method: "DELETE" }),
   attachmentBlob: (id: number, download = false) =>
     requestBlob(`/attachments/${id}/file`, { download: download ? "true" : undefined }),
+
+  // usage log
+  listUsageLogs: (p: { date_from: string; date_to: string; page: number; page_size: number }) =>
+    request<UsageLogList>("/usage-logs", {
+      query: { date_from: p.date_from, date_to: p.date_to, page: p.page, page_size: p.page_size },
+    }),
+  createUsageLog: (data: UsageLogInput) => request<UsageLog>("/usage-logs", { method: "POST", body: data }),
+  usageLogGauges: () => request<GaugeOption[]>("/usage-logs/gauges"),
 
   // reports
   calibrationReport: (days: number) => request<CalibrationReport>("/reports/calibration", { query: { days } }),

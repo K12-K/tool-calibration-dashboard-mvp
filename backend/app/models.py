@@ -61,7 +61,7 @@ class Gauge(Base):
     attachments: Mapped[list["Attachment"]] = relationship(
         back_populates="gauge",
         cascade="all, delete-orphan",
-        order_by="Attachment.uploaded_at.desc()",
+        order_by=lambda: [Attachment.sort_order.asc(), Attachment.uploaded_at.desc()],
     )
 
     # computed (never stored) so they are always current
@@ -88,7 +88,35 @@ class Attachment(Base):
     stored_name: Mapped[str] = mapped_column(String(255), unique=True)
     content_type: Mapped[str] = mapped_column(String(100))
     size_bytes: Mapped[int] = mapped_column(Integer)
+    tag: Mapped[str | None] = mapped_column(String(100), nullable=True)  # certificates: e.g. "LATEST CERT"
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     uploaded_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     gauge: Mapped[Gauge] = relationship(back_populates="attachments")
+
+
+class UsageLog(Base):
+    """History of who used which gauge and for how long."""
+
+    __tablename__ = "usage_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    employee_id: Mapped[str] = mapped_column(String(50), index=True)
+    # the gauge may later be deleted; the asset number is kept so the history stays readable
+    gauge_id: Mapped[int | None] = mapped_column(ForeignKey("gauges.id", ondelete="SET NULL"), nullable=True, index=True)
+    asset_no: Mapped[str] = mapped_column(String(100))
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    gauge: Mapped[Gauge | None] = relationship()
+
+    @property
+    def description(self) -> str | None:
+        return self.gauge.description if self.gauge is not None else None
+
+    @property
+    def duration_minutes(self) -> int:
+        return int((self.end_time - self.start_time).total_seconds() // 60)

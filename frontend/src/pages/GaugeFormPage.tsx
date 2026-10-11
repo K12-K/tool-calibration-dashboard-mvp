@@ -8,11 +8,12 @@ import { api } from "../api/endpoints";
 import type { Attachment, GaugeInput } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { CertificatesPanel, ImagesPanel, checkFiles } from "../components/AttachmentPanels";
-import type { Staged } from "../components/AttachmentPanels";
+import type { CertItem, Staged } from "../components/AttachmentPanels";
 import FilePreview from "../components/FilePreview";
 import type { PreviewTarget } from "../components/FilePreview";
 import { Brand } from "../components/Layout";
 import { DaysLeft } from "../components/StatusBadge";
+import { LATEST_TAG, isLatest, normalizeTag } from "../utils/certTags";
 import { addMonths, daysUntil, formatDate } from "../utils/date";
 
 type Mode = "new" | "view" | "edit";
@@ -114,6 +115,8 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   const [removed, setRemoved] = useState<Set<number>>(new Set());
   const [stagedImages, setStagedImages] = useState<Staged[]>([]);
   const [stagedCerts, setStagedCerts] = useState<Staged[]>([]);
+  const [certOrder, setCertOrder] = useState<string[]>([]); // display order, keys "a:<id>" / "s:<key>"
+  const [certTags, setCertTags] = useState<Record<string, string>>({});
   const [imageErrors, setImageErrors] = useState<string[]>([]);
   const [certErrors, setCertErrors] = useState<string[]>([]);
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
@@ -135,6 +138,9 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
       location: g.location ?? "",
       comments: g.comments ?? "",
     });
+    const certs = g.attachments.filter((a) => a.kind === "certificate");
+    setCertOrder(certs.map((a) => `a:${a.id}`));
+    setCertTags(Object.fromEntries(certs.map((a) => [`a:${a.id}`, a.tag ?? ""])));
   }, [gaugeQ.data]);
 
   const limits = optionsQ.data?.limits;
@@ -142,9 +148,17 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
     () => (gaugeQ.data?.attachments ?? []).filter((a) => a.kind === "image" && !removed.has(a.id)),
     [gaugeQ.data, removed],
   );
-  const existingCerts: Attachment[] = useMemo(
-    () => (gaugeQ.data?.attachments ?? []).filter((a) => a.kind === "certificate" && !removed.has(a.id)),
-    [gaugeQ.data, removed],
+  const certItems: CertItem[] = useMemo(
+    () =>
+      certOrder.flatMap((key): CertItem[] => {
+        if (key.startsWith("a:")) {
+          const a = gaugeQ.data?.attachments.find((x) => x.id === Number(key.slice(2)));
+          return a ? [{ key, name: a.original_name, size: a.size_bytes, uploadedAt: a.uploaded_at, attachmentId: a.id }] : [];
+        }
+        const s = stagedCerts.find((x) => `s:${x.key}` === key);
+        return s ? [{ key, name: s.file.name, size: s.file.size, file: s.file }] : [];
+      }),
+    [certOrder, gaugeQ.data, stagedCerts],
   );
 
   const freqN = /^\d+$/.test(form.frequency_months.trim()) ? Number(form.frequency_months) : null;
@@ -166,15 +180,29 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   const addFiles = (kind: "image" | "certificate") => (files: File[]) => {
     if (!limits) return;
     const isImage = kind === "image";
-    const count = isImage ? existingImages.length + stagedImages.length : existingCerts.length + stagedCerts.length;
+    const count = isImage ? existingImages.length + stagedImages.length : certOrder.length;
     const { accepted, errors: errs } = checkFiles(files, kind, count, isImage ? limits.max_images : limits.max_certificates, limits.max_upload_bytes);
     const staged = accepted.map((file) => ({ key: newKey(), file }));
     if (isImage) {
       setStagedImages((s) => [...s, ...staged]);
       setImageErrors(errs);
     } else {
-      // newest certificate first, so it becomes the "current" one
-      setStagedCerts((s) => [...staged.reverse(), ...s]);
+      setStagedCerts((s) => [...staged, ...s]);
+      if (staged.length) {
+        const keys = staged.map((s) => `s:${s.key}`);
+        setCertOrder((o) => [...keys, ...o]);
+        // a newly added PDF gets LATEST CERT by default (taken from the previous holder); the tag can be edited before saving
+        setCertTags((prev) => {
+          const next = { ...prev };
+          Object.keys(next).forEach((k) => {
+            if (isLatest(next[k])) next[k] = "";
+          });
+          keys.forEach((k, i) => {
+            next[k] = i === 0 ? LATEST_TAG : "";
+          });
+          return next;
+        });
+      }
       setCertErrors(errs);
     }
   };
@@ -183,6 +211,44 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
     setPreview({ title: a.original_name, fileName: a.original_name, contentType: a.content_type, attachmentId: a.id });
   const previewStaged = (s: Staged) =>
     setPreview({ title: s.file.name, fileName: s.file.name, contentType: s.file.type || "application/octet-stream", file: s.file });
+
+  const changeCertTag = (key: string, value: string) =>
+    setCertTags((prev) => {
+      const next = { ...prev, [key]: value };
+      if (isLatest(value)) {
+        // LATEST CERT can be on one PDF only
+        Object.keys(next).forEach((k) => {
+          if (k !== key && isLatest(next[k])) next[k] = "";
+        });
+      }
+      return next;
+    });
+
+  const moveCert = (key: string, dir: -1 | 1) =>
+    setCertOrder((o) => {
+      const i = o.indexOf(key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= o.length) return o;
+      const next = [...o];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+
+  const removeCert = (key: string) => {
+    if (key.startsWith("a:")) setRemoved((r) => new Set(r).add(Number(key.slice(2))));
+    else setStagedCerts((s) => s.filter((x) => `s:${x.key}` !== key));
+    setCertOrder((o) => o.filter((k) => k !== key));
+  };
+
+  const previewCert = (key: string) => {
+    const it = certItems.find((c) => c.key === key);
+    if (!it) return;
+    if (it.attachmentId !== undefined) {
+      setPreview({ title: it.name, fileName: it.name, contentType: "application/pdf", attachmentId: it.attachmentId });
+    } else if (it.file) {
+      setPreview({ title: it.name, fileName: it.name, contentType: "application/pdf", file: it.file });
+    }
+  };
 
   const onSave = async () => {
     setBanner(null);
@@ -203,12 +269,45 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
           failures.push(`Could not delete a file: ${e instanceof Error ? e.message : "error"}`);
         }
       }
-      // upload oldest certificate first so the newest ends up as "current"
-      for (const s of [...stagedCerts].reverse()) {
+      // certificates: upload new PDFs with their tag, save changed tags, then store the order.
+      // The PDF holding LATEST CERT is written last so the server never sees two holders.
+      const idByKey: Record<string, number> = {};
+      const certOps = certOrder.map((key) => {
+        const tag = normalizeTag(certTags[key]);
+        const latest = tag === LATEST_TAG;
+        if (key.startsWith("a:")) {
+          const attId = Number(key.slice(2));
+          idByKey[key] = attId;
+          const original = normalizeTag(gaugeQ.data?.attachments.find((a) => a.id === attId)?.tag);
+          const name = gaugeQ.data?.attachments.find((a) => a.id === attId)?.original_name ?? "certificate";
+          return { latest, name, run: original === tag ? null : () => api.updateAttachmentTag(attId, tag).then(() => undefined) };
+        }
+        const s = stagedCerts.find((x) => `s:${x.key}` === key);
+        const run = s
+          ? async () => {
+            const att = await api.uploadAttachment(saved.id, "certificate", s.file, tag);
+            idByKey[key] = att.id;
+          }
+          : null;
+        return { latest, name: s?.file.name ?? "certificate", run };
+      });
+      for (const op of [...certOps].sort((a, b) => Number(a.latest) - Number(b.latest))) {
+        if (!op.run) continue;
         try {
-          await api.uploadAttachment(saved.id, "certificate", s.file);
+          await op.run();
         } catch (e) {
-          failures.push(`${s.file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
+          failures.push(`${op.name}: ${e instanceof Error ? e.message : "upload failed"}`);
+        }
+      }
+      const finalIds = certOrder.map((k) => idByKey[k]).filter((v): v is number => v !== undefined);
+      const initialIds = (gaugeQ.data?.attachments ?? [])
+        .filter((a) => a.kind === "certificate" && !removed.has(a.id))
+        .map((a) => a.id);
+      if (finalIds.length > 0 && (stagedCerts.length > 0 || finalIds.join(",") !== initialIds.join(","))) {
+        try {
+          await api.reorderCertificates(saved.id, finalIds);
+        } catch (e) {
+          failures.push(`Certificate order: ${e instanceof Error ? e.message : "could not be saved"}`);
         }
       }
       for (const s of stagedImages) {
@@ -225,7 +324,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
       if (failures.length) {
         navigate(`/gauges/${saved.id}/edit`, { replace: true, state: { warning: `Entry saved, but some files failed: ${failures.join(" | ")}` } });
       } else {
-        navigate(`/gauges/${saved.id}`, { replace: true, state: { notice: "Entry saved successfully." } });
+        navigate("/", { replace: true, state: { notice: `Entry ${saved.asset_no} saved successfully.` } });
       }
     } catch (e) {
       if (e instanceof ApiError) {
@@ -345,14 +444,15 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
           readOnly={readOnly}
           max={limits?.max_certificates ?? 3}
           maxBytes={limits?.max_upload_bytes ?? 3 * 1024 * 1024}
-          existing={existingCerts}
-          staged={stagedCerts}
+          items={certItems}
+          tags={certTags}
           errors={certErrors}
           onAdd={addFiles("certificate")}
-          onRemoveExisting={(aid) => setRemoved((r) => new Set(r).add(aid))}
-          onRemoveStaged={(key) => setStagedCerts((s) => s.filter((x) => x.key !== key))}
-          onPreviewExisting={previewExisting}
-          onPreviewStaged={previewStaged}
+          onTagChange={changeCertTag}
+          onMakeLatest={(key) => changeCertTag(key, LATEST_TAG)}
+          onMove={moveCert}
+          onRemove={removeCert}
+          onPreview={previewCert}
         />
 
         <Field label="COMMENTS" error={errors.comments}>

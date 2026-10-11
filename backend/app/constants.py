@@ -28,3 +28,19 @@ STATUS_PAST_DUE = "PAST DUE"
 
 KIND_IMAGE = "image"
 KIND_CERTIFICATE = "certificate"
+
+LATEST_CERT_TAG = "LATEST CERT"
+MAX_TAG_LENGTH = 100
+MAX_USAGE_RANGE_MONTHS = 2
+
+
+def normalize_tag(raw: str | None) -> str | None:
+    """Trim; blank -> None; any casing of LATEST CERT -> the canonical text."""
+    if raw is None:
+        return None
+    tag = raw.strip()
+    if not tag:
+        return None
+    if tag.lower() == LATEST_CERT_TAG.lower():
+        return LATEST_CERT_TAG
+    return tag

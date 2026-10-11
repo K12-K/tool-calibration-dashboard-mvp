@@ -1,21 +1,37 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..constants import KIND_CERTIFICATE, KIND_IMAGE
+from ..constants import KIND_CERTIFICATE, KIND_IMAGE, LATEST_CERT_TAG, MAX_TAG_LENGTH, normalize_tag
 from ..database import get_db
 from ..deps import get_current_user
 from ..files import clean_filename, delete_file, is_pdf, resolve, save_bytes, sniff_image
 from ..models import Attachment, Gauge, User
-from ..schemas import AttachmentOut
+from ..schemas import AttachmentOut, AttachmentTagIn, CertOrderIn
 
 router = APIRouter(prefix="/api", tags=["attachments"], dependencies=[Depends(get_current_user)])
 
 MB = 1024 * 1024
+
+
+def _clear_latest_tag(db: Session, gauge_id: int, except_id: int | None = None) -> None:
+    """LATEST CERT may sit on only one certificate of a gauge."""
+    stmt = (
+        update(Attachment)
+        .where(
+            Attachment.gauge_id == gauge_id,
+            Attachment.kind == KIND_CERTIFICATE,
+            func.lower(Attachment.tag) == LATEST_CERT_TAG.lower(),
+        )
+        .values(tag=None)
+    )
+    if except_id is not None:
+        stmt = stmt.where(Attachment.id != except_id)
+    db.execute(stmt)
 
 
 @router.post("/gauges/{gauge_id}/attachments", response_model=AttachmentOut, status_code=status.HTTP_201_CREATED)
@@ -23,6 +39,7 @@ def upload_attachment(
     gauge_id: int,
     kind: Literal["image", "certificate"] = Query(...),
     file: UploadFile = File(...),
+    tag: str | None = Form(None),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -54,9 +71,23 @@ def upload_attachment(
             raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Only PDF files are allowed for certificates.")
         content_type, ext, fallback = "application/pdf", ".pdf", "certificate.pdf"
 
+    clean_tag = normalize_tag(tag) if kind == KIND_CERTIFICATE else None
+    if clean_tag is not None and len(clean_tag) > MAX_TAG_LENGTH:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Tag can be at most {MAX_TAG_LENGTH} characters.")
+    sort_order = 0
+    if kind == KIND_CERTIFICATE:
+        top = db.scalar(
+            select(func.max(Attachment.sort_order)).where(Attachment.gauge_id == gauge_id, Attachment.kind == KIND_CERTIFICATE)
+        )
+        sort_order = (top + 1) if top is not None else 0
+        if clean_tag == LATEST_CERT_TAG:
+            _clear_latest_tag(db, gauge_id)
+
     att = Attachment(
         gauge_id=gauge_id,
         kind=kind,
+        tag=clean_tag,
+        sort_order=sort_order,
         original_name=clean_filename(file.filename, fallback),
         stored_name=save_bytes(gauge_id, data, ext),
         content_type=content_type,
@@ -97,3 +128,34 @@ def delete_attachment(attachment_id: int, db: Session = Depends(get_db)):
     db.delete(att)
     db.commit()
     delete_file(stored)
+
+
+@router.patch("/attachments/{attachment_id}", response_model=AttachmentOut)
+def update_attachment_tag(attachment_id: int, payload: AttachmentTagIn, db: Session = Depends(get_db)):
+    att = db.get(Attachment, attachment_id)
+    if att is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Attachment not found")
+    if att.kind != KIND_CERTIFICATE:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only certificates can be tagged.")
+    if payload.tag == LATEST_CERT_TAG:
+        _clear_latest_tag(db, att.gauge_id, except_id=att.id)
+    att.tag = payload.tag
+    db.commit()
+    return att
+
+
+@router.put("/gauges/{gauge_id}/certificates/order", status_code=status.HTTP_204_NO_CONTENT)
+def reorder_certificates(gauge_id: int, payload: CertOrderIn, db: Session = Depends(get_db)):
+    """Store the display order of a gauge's certificates (first id = first position)."""
+    certs = db.scalars(
+        select(Attachment)
+        .where(Attachment.gauge_id == gauge_id, Attachment.kind == KIND_CERTIFICATE)
+        .order_by(Attachment.sort_order.asc(), Attachment.uploaded_at.desc())
+    ).all()
+    by_id = {c.id: c for c in certs}
+    ordered = [by_id[i] for i in dict.fromkeys(payload.ids) if i in by_id]
+    listed = {c.id for c in ordered}
+    ordered += [c for c in certs if c.id not in listed]  # anything not mentioned keeps its relative place, after
+    for pos, cert in enumerate(ordered):
+        cert.sort_order = pos
+    db.commit()

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import attachments, auth, gauges, meta, reports
+from .routers import attachments, auth, gauges, meta, reports, usage_logs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("calibration")
@@ -43,6 +43,7 @@ app.include_router(meta.router)
 app.include_router(gauges.router)
 app.include_router(attachments.router)
 app.include_router(reports.router)
+app.include_router(usage_logs.router)
 
 
 @app.get("/api/health", tags=["health"])
