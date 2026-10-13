@@ -6,3 +6,5 @@ __pycache__
 .venv
 backend/uploads
 backups
+license_private.key
+license.lic

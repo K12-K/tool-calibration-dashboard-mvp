@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.licensing import load_license
+
 from .config import settings
 from .database import init_db
 from .routers import attachments, auth, gauges, meta, reports, usage_logs
@@ -17,6 +19,7 @@ async def lifespan(_: FastAPI):
     settings.validate_for_production()
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     init_db()
+    load_license()
     log.info("Calibration Log API ready (environment=%s)", settings.environment)
     yield
 
