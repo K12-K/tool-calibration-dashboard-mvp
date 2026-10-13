@@ -65,7 +65,7 @@ h1, h2, h3, h4 { margin: 0; }
   display: flex; align-items: center; gap: 20px; padding: 10px 24px;
   background: linear-gradient(180deg, var(--blue-100), #fff); border-bottom: 1px solid var(--line);
 }
-.brand img { height: 48px; max-width: 200px; object-fit: contain; display: block; }
+.brand img { height: 52px; max-width: 240px; object-fit: contain; display: block; }
 .brand-fallback { font-weight: 700; color: var(--blue-700); border: 2px dashed var(--blue-300); padding: 8px 14px; border-radius: 6px; }
 .app-title { flex: 1; text-align: center; font-size: 24px; letter-spacing: 3px; color: var(--blue-900); font-weight: 700; }
 .header-user { display: flex; align-items: center; gap: 10px; }
@@ -197,6 +197,7 @@ textarea { resize: vertical; }
 .auth-screen { min-height: 100%; display: grid; place-items: center; padding: 24px; background: linear-gradient(160deg, var(--blue-100), #fff 60%); }
 .auth-card { width: min(440px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 28px; box-shadow: var(--shadow); }
 .auth-card .brand { display: flex; justify-content: center; margin-bottom: 8px; }
+.auth-card .brand img { height: 60px; max-width: 100%; }
 .auth-card h1 { text-align: center; letter-spacing: 3px; font-size: 20px; color: var(--blue-900); }
 .auth-card h2 { text-align: center; font-size: 16px; margin: 14px 0 6px; }
 .auth-card > .muted { text-align: center; margin: 0 0 14px; }

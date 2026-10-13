@@ -30,6 +30,12 @@ export function addMonths(iso: string, months: number): string {
   return toIso(new Date(year, month, Math.min(d, lastDay)));
 }
 
+export function addDays(iso: string, days: number): string {
+  const d = parseIso(iso);
+  d.setDate(d.getDate() + days);
+  return toIso(d);
+}
+
 export function daysUntil(iso: string): number {
   const today = new Date();
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();

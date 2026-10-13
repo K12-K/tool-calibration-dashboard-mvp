@@ -27,7 +27,7 @@ class GaugeIn(BaseModel):
     serial_number: str | None = Field(default=None, max_length=100)
     gauge_code: str | None = Field(default=None, max_length=100)
     calibration_date: date | None = None
-    frequency_months: int | None = Field(default=None, ge=1, le=240)
+    frequency_days: int | None = Field(default=None, ge=1, le=3650)
     status: str = "CALIBRATED"
     location: str | None = None
     comments: str | None = Field(default=None, max_length=5000)
@@ -115,7 +115,7 @@ class GaugeOut(BaseModel):
     serial_number: str | None
     gauge_code: str | None
     calibration_date: date | None
-    frequency_months: int | None
+    frequency_days: int | None
     due_date: date | None
     days_left: int | None
     status: str  # what the user selected
@@ -221,6 +221,7 @@ class CalibrationReport(BaseModel):
 # ---------------------------------------------------------------- meta
 class Limits(BaseModel):
     max_images: int
+    max_tool_images: int
     max_certificates: int
     max_upload_bytes: int
 

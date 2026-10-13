@@ -45,7 +45,7 @@ class Gauge(Base):
     serial_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     gauge_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     calibration_date: Mapped[date | None] = mapped_column(Date, nullable=True)
-    frequency_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    frequency_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(30), default="CALIBRATED", index=True)
     location: Mapped[str | None] = mapped_column(String(30), nullable=True)

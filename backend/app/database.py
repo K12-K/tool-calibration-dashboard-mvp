@@ -49,6 +49,38 @@ def init_db(retries: int = 20, delay: float = 2.0) -> None:
 
 
 def _light_migrations(conn) -> None:
+    _migrate_frequency_to_days(conn)
+    _migrate_attachment_columns(conn)
+
+
+def _migrate_frequency_to_days(conn) -> None:
+    """v1.2: FREQUENCY is stored in days instead of months. Existing rows are converted using the
+    real number of days between calibration and due date (months x 30 when no due date exists).
+    The old frequency_months column is left in place, unused."""
+    cols = {
+        r[0]
+        for r in conn.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'gauges' AND table_schema = current_schema()"
+            )
+        )
+    }
+    if "frequency_days" in cols:
+        return
+    conn.execute(text("ALTER TABLE gauges ADD COLUMN frequency_days INTEGER"))
+    if "frequency_months" in cols:
+        conn.execute(
+            text(
+                "UPDATE gauges SET frequency_days = CASE "
+                " WHEN calibration_date IS NOT NULL AND due_date IS NOT NULL AND due_date > calibration_date "
+                "   THEN (due_date - calibration_date) "
+                " WHEN frequency_months IS NOT NULL THEN frequency_months * 30 END"
+            )
+        )
+
+
+def _migrate_attachment_columns(conn) -> None:
     """create_all never alters existing tables, so add columns introduced after v1.0 here.
     Idempotent: runs its statements only when the column is missing."""
     cols = {

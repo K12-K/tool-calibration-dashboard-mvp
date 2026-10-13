@@ -86,25 +86,36 @@ function useFilePicker(onAdd: (files: File[]) => void) {
   return { ref, onChange, open: () => ref.current?.click() };
 }
 
-export function ImagesPanel(p: CommonProps) {
+interface ImagesPanelProps extends CommonProps {
+  title?: string;
+  uploadLabel?: string;
+  emptyText?: string;
+  single?: boolean; // exactly one image allowed (Tool/Equipment image)
+}
+
+export function ImagesPanel(p: ImagesPanelProps) {
   const picker = useFilePicker(p.onAdd);
   const total = p.existing.length + p.staged.length;
   return (
     <section className="panel">
       <div className="panel-head">
-        <h3>IMAGES <span className="muted">({total}/{p.max})</span></h3>
+        <h3>{p.title ?? "IMAGES"} <span className="muted">({total}/{p.max})</span></h3>
         {!p.readOnly && (
           <>
-            <input ref={picker.ref} type="file" hidden multiple accept="image/jpeg,image/png,image/gif,image/webp,image/*" onChange={picker.onChange} />
+            <input ref={picker.ref} type="file" hidden multiple={!p.single} accept="image/jpeg,image/png,image/gif,image/webp,image/*" onChange={picker.onChange} />
             <button type="button" className="btn btn-outline" onClick={picker.open} disabled={total >= p.max}>
-              <ImagePlus size={16} /> Upload images
+              <ImagePlus size={16} /> {p.uploadLabel ?? "Upload images"}
             </button>
           </>
         )}
       </div>
-      {!p.readOnly && <p className="hint">Up to {p.max} images, each max {formatBytes(p.maxBytes)} (JPG, PNG, GIF, WEBP).</p>}
+      {!p.readOnly && (
+        <p className="hint">
+          {p.single ? "1 image" : `Up to ${p.max} images`}, each max {formatBytes(p.maxBytes)} (JPG, PNG, GIF, WEBP).
+        </p>
+      )}
       {p.errors.map((e) => <div key={e} className="alert alert-error">{e}</div>)}
-      {total === 0 && <div className="empty-box">No images</div>}
+      {total === 0 && <div className="empty-box">{p.emptyText ?? "No images"}</div>}
       <div className="thumb-grid">
         {p.staged.map((s) => (
           <figure key={s.key} className="thumb">

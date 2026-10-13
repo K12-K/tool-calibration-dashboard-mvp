@@ -16,7 +16,8 @@ class Settings(BaseSettings):
 
     upload_dir: str = "./uploads"
     max_upload_bytes: int = 3 * 1024 * 1024  # 3 MB
-    max_images: int = 5
+    max_images: int = 3
+    max_tool_images: int = 1  # the separate Tool/Equipment image
     max_certificates: int = 3
 
     cors_origins: str = ""  # comma separated; not needed when served behind the bundled nginx

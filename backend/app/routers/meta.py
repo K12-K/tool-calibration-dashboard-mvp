@@ -15,6 +15,7 @@ def options():
         locations=LOCATIONS,
         limits=Limits(
             max_images=settings.max_images,
+            max_tool_images=settings.max_tool_images,
             max_certificates=settings.max_certificates,
             max_upload_bytes=settings.max_upload_bytes,
         ),

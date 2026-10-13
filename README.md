@@ -13,7 +13,7 @@ Web application to track gauge / instrument calibrations (built from `Calibratio
 ## Pages (mirrors the Excel sheets)
 
 1. **Database table (home)** – all entries, *Add New Entry* button, Excel-style column menus (sort newest/oldest or A–Z, searchable value checklist), global search, pagination, **View** / **Edit** on every row (clicking a row opens it for editing).
-2. **Form** – ASSET #, DESCRIPTION, MANUFACTURER, S/N, GAUGE CODE, LOCATION, STATUS, DATE OF CALIBRATION, FREQUENCY, DUE DATE and DAYS LEFT (auto), COMMENTS, up to 3 calibration-certificate PDFs (each with an editable tag; the default tag **LATEST CERT** can be on one PDF only and can be moved; PDFs can be reordered), up to 5 images. Saving returns you to the database page. PDFs/images open in a pop-up and can be downloaded.
+2. **Form** – ASSET #, DESCRIPTION, MANUFACTURER, S/N, GAUGE CODE, LOCATION, STATUS, DATE OF CALIBRATION, FREQUENCY (days), DUE DATE and DAYS LEFT (auto), COMMENTS, up to 3 calibration-certificate PDFs (each with an editable tag; the default tag **LATEST CERT** can be on one PDF only and can be moved; PDFs can be reordered), up to 3 images, plus one separate Tool/Equipment image. Saving returns you to the database page. PDFs/images open in a pop-up and can be downloaded.
 3. **Usage Log** – history of who used which gauge: Employee ID, gauge (Asset #), start and end time. Newest first, filtered by a From/To date picker (maximum 2 months), *Add Log* button.
 4. **Reports** (the "DASHBOARD" sheet) – calibrations due in the next N days (default 10), past-due calibrations, status breakdown, CSV export and print.
 
@@ -69,7 +69,7 @@ docker-compose.yml, .env.example
 
 ## Business rules worth knowing
 
-* **Due date** = date of calibration + frequency (months). **Days left** = due date − today (recalculated on every request, never stale).
+* **Due date** = date of calibration + frequency (days). **Days left** = due date − today (recalculated on every request, never stale).
 * A gauge whose status is **CALIBRATED** but whose due date has passed is *displayed* as **PAST DUE** (the saved status is not changed).
 * Gauges that are **OUT OF SERVICE**, **REFERENCE ONLY** or **MISSING/LOST** are left out of the due-soon / past-due reports.
 * Asset # is unique (case-insensitive). Asset # and S/N accept letters, digits, space and `. _ / -`.

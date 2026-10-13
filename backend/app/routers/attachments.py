@@ -6,7 +6,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..constants import KIND_CERTIFICATE, KIND_IMAGE, LATEST_CERT_TAG, MAX_TAG_LENGTH, normalize_tag
+from ..constants import KIND_CERTIFICATE, KIND_IMAGE, KIND_TOOL_IMAGE, LATEST_CERT_TAG, MAX_TAG_LENGTH, normalize_tag
 from ..database import get_db
 from ..deps import get_current_user
 from ..files import clean_filename, delete_file, is_pdf, resolve, save_bytes, sniff_image
@@ -37,7 +37,7 @@ def _clear_latest_tag(db: Session, gauge_id: int, except_id: int | None = None) 
 @router.post("/gauges/{gauge_id}/attachments", response_model=AttachmentOut, status_code=status.HTTP_201_CREATED)
 def upload_attachment(
     gauge_id: int,
-    kind: Literal["image", "certificate"] = Query(...),
+    kind: Literal["image", "tool_image", "certificate"] = Query(...),
     file: UploadFile = File(...),
     tag: str | None = Form(None),
     db: Session = Depends(get_db),
@@ -48,10 +48,10 @@ def upload_attachment(
     if gauge is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Gauge not found")
 
-    limit = settings.max_images if kind == KIND_IMAGE else settings.max_certificates
+    limit = {KIND_IMAGE: settings.max_images, KIND_TOOL_IMAGE: settings.max_tool_images}.get(kind, settings.max_certificates)
     count = db.scalar(select(func.count()).select_from(Attachment).where(Attachment.gauge_id == gauge_id, Attachment.kind == kind)) or 0
     if count >= limit:
-        what = "images" if kind == KIND_IMAGE else "calibration certificates"
+        what = {KIND_IMAGE: "images", KIND_TOOL_IMAGE: "tool/equipment image"}.get(kind, "calibration certificates")
         raise HTTPException(status.HTTP_409_CONFLICT, f"Maximum of {limit} {what} reached. Delete one first.")
 
     data = file.file.read(settings.max_upload_bytes + 1)
@@ -60,7 +60,7 @@ def upload_attachment(
     if not data:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "File is empty.")
 
-    if kind == KIND_IMAGE:
+    if kind in (KIND_IMAGE, KIND_TOOL_IMAGE):
         sniffed = sniff_image(data[:16])
         if sniffed is None:
             raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Only JPG, PNG, GIF or WEBP images are allowed.")

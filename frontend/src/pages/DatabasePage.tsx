@@ -17,7 +17,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "serial_number", label: "S/N", kind: "text" },
   { key: "gauge_code", label: "GAUGE CODE", kind: "text" },
   { key: "calibration_date", label: "DATE OF CALIBRATION", kind: "date" },
-  { key: "frequency_months", label: "FREQUENCY", kind: "number" },
+  { key: "frequency_days", label: "FREQUENCY", kind: "number" },
   { key: "due_date", label: "DUE DATE", kind: "date" },
   { key: "days_left", label: "DAYS LEFT", kind: "number" },
   { key: "status", label: "STATUS", kind: "text" },
@@ -25,7 +25,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "comments", label: "COMMENTS", kind: "longtext" },
 ];
 
-const STORAGE_KEY = "calibration.table.v1";
+const STORAGE_KEY = "calibration.table.v2"; // v2: frequency column renamed (months -> days)
 const DEFAULT_STATE: ListParams = {
   page: 1,
   page_size: 25,
@@ -52,8 +52,8 @@ function renderCell(col: ColumnDef, g: Gauge) {
       return formatDate(g.calibration_date);
     case "due_date":
       return formatDate(g.due_date);
-    case "frequency_months":
-      return g.frequency_months ? `${g.frequency_months} mo` : "";
+    case "frequency_days":
+      return g.frequency_days ? `${g.frequency_days} days` : "";
     case "days_left":
       return <DaysLeft days={g.days_left} />;
     case "status":

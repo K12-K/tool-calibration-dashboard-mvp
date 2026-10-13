@@ -7,7 +7,7 @@ export interface User {
 
 export interface Attachment {
   id: number;
-  kind: "image" | "certificate";
+  kind: "image" | "tool_image" | "certificate";
   original_name: string;
   content_type: string;
   size_bytes: number;
@@ -24,7 +24,7 @@ export interface Gauge {
   serial_number: string | null;
   gauge_code: string | null;
   calibration_date: string | null;
-  frequency_months: number | null;
+  frequency_days: number | null;
   due_date: string | null;
   days_left: number | null;
   status: string;
@@ -46,7 +46,7 @@ export interface GaugeInput {
   serial_number: string | null;
   gauge_code: string | null;
   calibration_date: string | null;
-  frequency_months: number | null;
+  frequency_days: number | null;
   status: string;
   location: string | null;
   comments: string | null;
@@ -68,7 +68,7 @@ export interface ColumnValues {
 export interface Options {
   statuses: string[];
   locations: string[];
-  limits: { max_images: number; max_certificates: number; max_upload_bytes: number };
+  limits: { max_images: number; max_tool_images: number; max_certificates: number; max_upload_bytes: number };
   due_soon_days: number;
 }
 

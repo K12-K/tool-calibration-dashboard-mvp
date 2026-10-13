@@ -70,7 +70,7 @@ Branding – edit `frontend/public/config.js`:
 ```js
 window.__APP_CONFIG__ = {
   companyName: "Acme Manufacturing",
-  logoUrl: "/acme-logo.png",          // put the file next to config.js in frontend/public/
+  logoUrl: "/acme-logo.png",          // put the file next to config.js in frontend/public/ (this build ships with logo.png)
   footerText: "© Acme Manufacturing — Calibration Log. Internal use only.",
   apiBaseUrl: "/api",
 };
@@ -151,7 +151,7 @@ authenticator secrets – protect the destination.
 # copy the new project files over the old ones (keep .env and frontend/public/config.js)
 docker compose up -d --build
 ```
-New tables are created automatically, and the few columns added since v1.0 (certificate tag / order) are added to an existing database on startup, keeping existing data (the newest certificate of each gauge becomes LATEST CERT). Always take a backup first.
+New tables are created automatically, and the few columns added since v1.0 (certificate tag / order, frequency in days) are added to an existing database on startup, keeping existing data (the newest certificate of each gauge becomes LATEST CERT; existing frequencies are converted from months to days using each gauge's actual calibration-to-due-date span). Always take a backup first.
 
 ### Logs and health
 `docker compose logs --tail=200 backend` · `docker compose logs --tail=200 web` · `GET /api/health`.
@@ -224,7 +224,7 @@ IIS or nginx for Windows serving `dist/` and proxying `/api`), following the sam
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | 480 | Session length |
 | `UPLOAD_DIR` | `./uploads` (`/data/uploads` in Docker) | Where certificates/images are stored |
 | `MAX_UPLOAD_BYTES` | 3145728 | Max size per file (3 MB). If raised, also raise `client_max_body_size` in `frontend/nginx.conf` |
-| `MAX_IMAGES` / `MAX_CERTIFICATES` | 5 / 3 | Per-gauge limits |
+| `MAX_IMAGES` / `MAX_TOOL_IMAGES` / `MAX_CERTIFICATES` | 3 / 1 / 3 | Per-gauge limits (images / Tool-Equipment image / certificate PDFs) |
 | `ALLOW_REGISTRATION` | `true` | Open sign-up on/off |
 | `REGISTRATION_ALLOWED_EMAIL_DOMAINS` | empty | Comma-separated allow-list |
 | `TOTP_ISSUER` | `Calibration Log` | Label shown in the authenticator app |

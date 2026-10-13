@@ -52,7 +52,7 @@ export const api = {
   deleteGauge: (id: number) => request<void>(`/gauges/${id}`, { method: "DELETE" }),
 
   // attachments
-  uploadAttachment: (gaugeId: number, kind: "image" | "certificate", file: File, tag?: string | null) => {
+  uploadAttachment: (gaugeId: number, kind: "image" | "tool_image" | "certificate", file: File, tag?: string | null) => {
     const form = new FormData();
     form.append("file", file);
     if (tag) form.append("tag", tag);

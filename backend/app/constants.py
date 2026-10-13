@@ -27,6 +27,7 @@ STATUS_CALIBRATED = "CALIBRATED"
 STATUS_PAST_DUE = "PAST DUE"
 
 KIND_IMAGE = "image"
+KIND_TOOL_IMAGE = "tool_image"  # the single Tool/Equipment image
 KIND_CERTIFICATE = "certificate"
 
 LATEST_CERT_TAG = "LATEST CERT"

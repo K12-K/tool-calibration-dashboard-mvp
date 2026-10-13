@@ -26,7 +26,7 @@ interface Props {
 export function formatFilterValue(column: ColumnDef, v: string): string {
   if (v === BLANK) return "(Blanks)";
   if (column.kind === "date") return formatDate(v);
-  if (column.key === "frequency_months") return `${v} months`;
+  if (column.key === "frequency_days") return `${v} days`;
   return v;
 }
 

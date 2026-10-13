@@ -1,6 +1,6 @@
 """Pure date helpers (no third-party imports, easy to unit test)."""
 import calendar
-from datetime import date
+from datetime import date, timedelta
 
 
 def add_months(d: date, months: int) -> date:
@@ -11,10 +11,10 @@ def add_months(d: date, months: int) -> date:
     return date(year, month, day)
 
 
-def calc_due_date(calibration_date: date | None, frequency_months: int | None) -> date | None:
-    if calibration_date is None or frequency_months is None:
+def calc_due_date(calibration_date: date | None, frequency_days: int | None) -> date | None:
+    if calibration_date is None or frequency_days is None:
         return None
-    return add_months(calibration_date, frequency_months)
+    return calibration_date + timedelta(days=frequency_days)
 
 
 def calc_days_left(due_date: date | None, today: date | None = None) -> int | None:

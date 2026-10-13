@@ -40,7 +40,7 @@ COLUMNS: dict[str, tuple] = {
     "serial_number": (Gauge.serial_number, "text"),
     "gauge_code": (Gauge.gauge_code, "text"),
     "calibration_date": (Gauge.calibration_date, "date"),
-    "frequency_months": (Gauge.frequency_months, "int"),
+    "frequency_days": (Gauge.frequency_days, "int"),
     "due_date": (Gauge.due_date, "date"),
     "days_left": (DAYS_LEFT, "int"),
     "status": (DISPLAY_STATUS, "text"),
@@ -173,7 +173,7 @@ def get_gauge(gauge_id: int, db: Session = Depends(get_db)):
 def create_gauge(payload: GaugeIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     _ensure_unique_asset(db, payload.asset_no)
     g = Gauge(**payload.model_dump(), created_by_id=user.id, updated_by_id=user.id)
-    g.due_date = calc_due_date(g.calibration_date, g.frequency_months)
+    g.due_date = calc_due_date(g.calibration_date, g.frequency_days)
     db.add(g)
     try:
         db.commit()
@@ -189,7 +189,7 @@ def update_gauge(gauge_id: int, payload: GaugeIn, db: Session = Depends(get_db),
     _ensure_unique_asset(db, payload.asset_no, exclude_id=gauge_id)
     for key, value in payload.model_dump().items():
         setattr(g, key, value)
-    g.due_date = calc_due_date(g.calibration_date, g.frequency_months)
+    g.due_date = calc_due_date(g.calibration_date, g.frequency_days)
     g.updated_by_id = user.id
     try:
         db.commit()

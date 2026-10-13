@@ -14,7 +14,7 @@ import type { PreviewTarget } from "../components/FilePreview";
 import { Brand } from "../components/Layout";
 import { DaysLeft } from "../components/StatusBadge";
 import { LATEST_TAG, isLatest, normalizeTag } from "../utils/certTags";
-import { addMonths, daysUntil, formatDate } from "../utils/date";
+import { addDays, daysUntil, formatDate } from "../utils/date";
 
 type Mode = "new" | "view" | "edit";
 
@@ -25,7 +25,7 @@ interface FormState {
   serial_number: string;
   gauge_code: string;
   calibration_date: string;
-  frequency_months: string;
+  frequency_days: string;
   status: string;
   location: string;
   comments: string;
@@ -38,27 +38,27 @@ const EMPTY: FormState = {
   serial_number: "",
   gauge_code: "",
   calibration_date: "",
-  frequency_months: "",
+  frequency_days: "",
   status: "CALIBRATED",
   location: "",
   comments: "",
 };
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9 ._/-]*$/;
-const FREQ_PRESETS = [1, 3, 6, 12, 24, 36];
+const FREQ_PRESETS = [30, 90, 180, 365, 730, 1095];
 
 function validate(f: FormState): Record<string, string> {
   const e: Record<string, string> = {};
   if (!f.asset_no.trim()) e.asset_no = "Asset # is required";
   else if (!ID_RE.test(f.asset_no.trim())) e.asset_no = "Letters, numbers, spaces and . _ / - only";
   if (f.serial_number.trim() && !ID_RE.test(f.serial_number.trim())) e.serial_number = "Letters, numbers, spaces and . _ / - only";
-  const freq = f.frequency_months.trim();
+  const freq = f.frequency_days.trim();
   if (freq) {
     const n = Number(freq);
-    if (!Number.isInteger(n) || n < 1 || n > 240) e.frequency_months = "Whole months, 1 to 240";
+    if (!Number.isInteger(n) || n < 1 || n > 3650) e.frequency_days = "Whole days, 1 to 3650";
   }
   if (freq && !f.calibration_date) e.calibration_date = "Required when a frequency is set";
-  if (f.calibration_date && !freq && !e.frequency_months) e.frequency_months = "Required to calculate the due date";
+  if (f.calibration_date && !freq && !e.frequency_days) e.frequency_days = "Required to calculate the due date";
   return e;
 }
 
@@ -71,7 +71,7 @@ function toInput(f: FormState): GaugeInput {
     serial_number: t(f.serial_number),
     gauge_code: t(f.gauge_code),
     calibration_date: f.calibration_date || null,
-    frequency_months: f.frequency_months.trim() ? Number(f.frequency_months) : null,
+    frequency_days: f.frequency_days.trim() ? Number(f.frequency_days) : null,
     status: f.status,
     location: t(f.location),
     comments: t(f.comments),
@@ -114,10 +114,12 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   const [saving, setSaving] = useState(false);
   const [removed, setRemoved] = useState<Set<number>>(new Set());
   const [stagedImages, setStagedImages] = useState<Staged[]>([]);
+  const [stagedTool, setStagedTool] = useState<Staged[]>([]);
   const [stagedCerts, setStagedCerts] = useState<Staged[]>([]);
   const [certOrder, setCertOrder] = useState<string[]>([]); // display order, keys "a:<id>" / "s:<key>"
   const [certTags, setCertTags] = useState<Record<string, string>>({});
   const [imageErrors, setImageErrors] = useState<string[]>([]);
+  const [toolErrors, setToolErrors] = useState<string[]>([]);
   const [certErrors, setCertErrors] = useState<string[]>([]);
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
 
@@ -133,7 +135,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
       serial_number: g.serial_number ?? "",
       gauge_code: g.gauge_code ?? "",
       calibration_date: g.calibration_date ?? "",
-      frequency_months: g.frequency_months ? String(g.frequency_months) : "",
+      frequency_days: g.frequency_days ? String(g.frequency_days) : "",
       status: g.status,
       location: g.location ?? "",
       comments: g.comments ?? "",
@@ -146,6 +148,10 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   const limits = optionsQ.data?.limits;
   const existingImages: Attachment[] = useMemo(
     () => (gaugeQ.data?.attachments ?? []).filter((a) => a.kind === "image" && !removed.has(a.id)),
+    [gaugeQ.data, removed],
+  );
+  const existingTool: Attachment[] = useMemo(
+    () => (gaugeQ.data?.attachments ?? []).filter((a) => a.kind === "tool_image" && !removed.has(a.id)),
     [gaugeQ.data, removed],
   );
   const certItems: CertItem[] = useMemo(
@@ -161,8 +167,8 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
     [certOrder, gaugeQ.data, stagedCerts],
   );
 
-  const freqN = /^\d+$/.test(form.frequency_months.trim()) ? Number(form.frequency_months) : null;
-  const dueDate = form.calibration_date && freqN ? addMonths(form.calibration_date, freqN) : null;
+  const freqN = /^\d+$/.test(form.frequency_days.trim()) ? Number(form.frequency_days) : null;
+  const dueDate = form.calibration_date && freqN ? addDays(form.calibration_date, freqN) : null;
   const daysLeft = dueDate ? daysUntil(dueDate) : null;
   const overdueHint = form.status === "CALIBRATED" && daysLeft !== null && daysLeft < 0;
 
@@ -177,8 +183,14 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
     });
   };
 
-  const addFiles = (kind: "image" | "certificate") => (files: File[]) => {
+  const addFiles = (kind: "image" | "tool_image" | "certificate") => (files: File[]) => {
     if (!limits) return;
+    if (kind === "tool_image") {
+      const { accepted, errors: errs } = checkFiles(files, "image", existingTool.length + stagedTool.length, limits.max_tool_images, limits.max_upload_bytes);
+      setStagedTool((s) => [...s, ...accepted.map((file) => ({ key: newKey(), file }))]);
+      setToolErrors(errs);
+      return;
+    }
     const isImage = kind === "image";
     const count = isImage ? existingImages.length + stagedImages.length : certOrder.length;
     const { accepted, errors: errs } = checkFiles(files, kind, count, isImage ? limits.max_images : limits.max_certificates, limits.max_upload_bytes);
@@ -317,6 +329,13 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
           failures.push(`${s.file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
         }
       }
+      for (const s of stagedTool) {
+        try {
+          await api.uploadAttachment(saved.id, "tool_image", s.file);
+        } catch (e) {
+          failures.push(`${s.file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
+        }
+      }
       qc.removeQueries({ queryKey: ["gauge", saved.id] });
       await qc.invalidateQueries({ queryKey: ["gauges"] });
       await qc.invalidateQueries({ queryKey: ["distinct"] });
@@ -422,8 +441,8 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
             <Field label="DATE OF CALIBRATION" error={errors.calibration_date}>
               <input type="date" value={form.calibration_date} onChange={set("calibration_date")} disabled={dis} min="2000-01-01" max="2100-12-31" />
             </Field>
-            <Field label="FREQUENCY (MONTHS)" error={errors.frequency_months} hint="Choose a preset or type a number of months">
-              <input type="number" min={1} max={240} step={1} list="freq-presets" value={form.frequency_months} onChange={set("frequency_months")} disabled={dis} />
+            <Field label="FREQUENCY (DAYS)" error={errors.frequency_days} hint="Choose a preset or type a number of days">
+              <input type="number" min={1} max={3650} step={1} list="freq-presets" value={form.frequency_days} onChange={set("frequency_days")} disabled={dis} />
               <datalist id="freq-presets">{FREQ_PRESETS.map((n) => <option key={n} value={n} />)}</datalist>
             </Field>
             <Field label="DUE DATE" hint="Auto calculated: date of calibration + frequency">
@@ -437,6 +456,23 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
                 The due date has passed, so this gauge shows as <strong>PAST DUE</strong> in the table until a new calibration date is saved.
               </div>
             )}
+            <ImagesPanel
+              title="TOOL/EQUIPMENT IMAGE"
+              uploadLabel="Upload image"
+              emptyText="No tool/equipment image"
+              single
+              readOnly={readOnly}
+              max={limits?.max_tool_images ?? 1}
+              maxBytes={limits?.max_upload_bytes ?? 3 * 1024 * 1024}
+              existing={existingTool}
+              staged={stagedTool}
+              errors={toolErrors}
+              onAdd={addFiles("tool_image")}
+              onRemoveExisting={(aid) => setRemoved((r) => new Set(r).add(aid))}
+              onRemoveStaged={(key) => setStagedTool((s) => s.filter((x) => x.key !== key))}
+              onPreviewExisting={previewExisting}
+              onPreviewStaged={previewStaged}
+            />
           </div>
         </div>
 
@@ -461,7 +497,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
 
         <ImagesPanel
           readOnly={readOnly}
-          max={limits?.max_images ?? 5}
+          max={limits?.max_images ?? 3}
           maxBytes={limits?.max_upload_bytes ?? 3 * 1024 * 1024}
           existing={existingImages}
           staged={stagedImages}

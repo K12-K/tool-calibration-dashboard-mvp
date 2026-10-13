@@ -13,7 +13,7 @@ declare global {
 
 const defaults: AppConfig = {
   companyName: "Company",
-  logoUrl: "/logo.svg",
+  logoUrl: "/logo.png",
   footerText: "Calibration Log",
   apiBaseUrl: "/api",
 };

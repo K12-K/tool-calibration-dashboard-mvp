@@ -16,10 +16,11 @@ def test_add_months():
 def test_due_and_days_left():
     assert calc_due_date(None, 12) is None
     assert calc_due_date(date(2026, 1, 1), None) is None
-    due = calc_due_date(date(2026, 1, 1), 6)
-    assert due == date(2026, 7, 1)
-    assert calc_days_left(due, today=date(2026, 6, 21)) == 10
-    assert calc_days_left(due, today=date(2026, 7, 2)) == -1
+    due = calc_due_date(date(2026, 1, 1), 180)
+    assert due == date(2026, 6, 30)
+    assert calc_due_date(date(2026, 1, 1), 365) == date(2027, 1, 1)
+    assert calc_days_left(due, today=date(2026, 6, 20)) == 10
+    assert calc_days_left(due, today=date(2026, 7, 1)) == -1
 
 
 def test_display_status():
