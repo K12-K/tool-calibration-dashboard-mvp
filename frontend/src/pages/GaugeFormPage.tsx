@@ -45,6 +45,7 @@ const EMPTY: FormState = {
 };
 
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9 ._/-]*$/;
+const HIDDEN_STATUSES = ["PAST DUE"]; // shown automatically from the due date, not picked by hand
 const FREQ_PRESETS = [30, 90, 180, 365, 730, 1095];
 
 function validate(f: FormState): Record<string, string> {
@@ -113,12 +114,10 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   const [banner, setBanner] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [removed, setRemoved] = useState<Set<number>>(new Set());
-  const [stagedImages, setStagedImages] = useState<Staged[]>([]);
   const [stagedTool, setStagedTool] = useState<Staged[]>([]);
   const [stagedCerts, setStagedCerts] = useState<Staged[]>([]);
   const [certOrder, setCertOrder] = useState<string[]>([]); // display order, keys "a:<id>" / "s:<key>"
   const [certTags, setCertTags] = useState<Record<string, string>>({});
-  const [imageErrors, setImageErrors] = useState<string[]>([]);
   const [toolErrors, setToolErrors] = useState<string[]>([]);
   const [certErrors, setCertErrors] = useState<string[]>([]);
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
@@ -136,7 +135,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
       gauge_code: g.gauge_code ?? "",
       calibration_date: g.calibration_date ?? "",
       frequency_days: g.frequency_days ? String(g.frequency_days) : "",
-      status: g.status,
+      status: HIDDEN_STATUSES.includes(g.status) ? "CALIBRATED" : g.status, // legacy entries saved as PAST DUE
       location: g.location ?? "",
       comments: g.comments ?? "",
     });
@@ -146,10 +145,6 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   }, [gaugeQ.data]);
 
   const limits = optionsQ.data?.limits;
-  const existingImages: Attachment[] = useMemo(
-    () => (gaugeQ.data?.attachments ?? []).filter((a) => a.kind === "image" && !removed.has(a.id)),
-    [gaugeQ.data, removed],
-  );
   const existingTool: Attachment[] = useMemo(
     () => (gaugeQ.data?.attachments ?? []).filter((a) => a.kind === "tool_image" && !removed.has(a.id)),
     [gaugeQ.data, removed],
@@ -183,7 +178,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
     });
   };
 
-  const addFiles = (kind: "image" | "tool_image" | "certificate") => (files: File[]) => {
+  const addFiles = (kind: "tool_image" | "certificate") => (files: File[]) => {
     if (!limits) return;
     if (kind === "tool_image") {
       const { accepted, errors: errs } = checkFiles(files, "image", existingTool.length + stagedTool.length, limits.max_tool_images, limits.max_upload_bytes);
@@ -191,32 +186,25 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
       setToolErrors(errs);
       return;
     }
-    const isImage = kind === "image";
-    const count = isImage ? existingImages.length + stagedImages.length : certOrder.length;
-    const { accepted, errors: errs } = checkFiles(files, kind, count, isImage ? limits.max_images : limits.max_certificates, limits.max_upload_bytes);
+    const { accepted, errors: errs } = checkFiles(files, "certificate", certOrder.length, limits.max_certificates, limits.max_upload_bytes);
     const staged = accepted.map((file) => ({ key: newKey(), file }));
-    if (isImage) {
-      setStagedImages((s) => [...s, ...staged]);
-      setImageErrors(errs);
-    } else {
-      setStagedCerts((s) => [...staged, ...s]);
-      if (staged.length) {
-        const keys = staged.map((s) => `s:${s.key}`);
-        setCertOrder((o) => [...keys, ...o]);
-        // a newly added PDF gets LATEST CERT by default (taken from the previous holder); the tag can be edited before saving
-        setCertTags((prev) => {
-          const next = { ...prev };
-          Object.keys(next).forEach((k) => {
-            if (isLatest(next[k])) next[k] = "";
-          });
-          keys.forEach((k, i) => {
-            next[k] = i === 0 ? LATEST_TAG : "";
-          });
-          return next;
+    setStagedCerts((s) => [...staged, ...s]);
+    if (staged.length) {
+      const keys = staged.map((s) => `s:${s.key}`);
+      setCertOrder((o) => [...keys, ...o]);
+      // a newly added PDF gets LATEST CERT by default (taken from the previous holder); the tag can be edited before saving
+      setCertTags((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (isLatest(next[k])) next[k] = "";
         });
-      }
-      setCertErrors(errs);
+        keys.forEach((k, i) => {
+          next[k] = i === 0 ? LATEST_TAG : "";
+        });
+        return next;
+      });
     }
+    setCertErrors(errs);
   };
 
   const previewExisting = (a: Attachment) =>
@@ -320,13 +308,6 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
           await api.reorderCertificates(saved.id, finalIds);
         } catch (e) {
           failures.push(`Certificate order: ${e instanceof Error ? e.message : "could not be saved"}`);
-        }
-      }
-      for (const s of stagedImages) {
-        try {
-          await api.uploadAttachment(saved.id, "image", s.file);
-        } catch (e) {
-          failures.push(`${s.file.name}: ${e instanceof Error ? e.message : "upload failed"}`);
         }
       }
       for (const s of stagedTool) {
@@ -435,7 +416,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
           <div className="form-col">
             <Field label="STATUS" error={errors.status}>
               <select value={form.status} onChange={set("status")} disabled={dis}>
-                {opts.statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                {opts.statuses.filter((s) => !HIDDEN_STATUSES.includes(s)).map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
             <Field label="DATE OF CALIBRATION" error={errors.calibration_date}>
@@ -494,20 +475,6 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
         <Field label="COMMENTS" error={errors.comments}>
           <textarea rows={4} value={form.comments} onChange={set("comments")} disabled={dis} maxLength={5000} />
         </Field>
-
-        <ImagesPanel
-          readOnly={readOnly}
-          max={limits?.max_images ?? 3}
-          maxBytes={limits?.max_upload_bytes ?? 3 * 1024 * 1024}
-          existing={existingImages}
-          staged={stagedImages}
-          errors={imageErrors}
-          onAdd={addFiles("image")}
-          onRemoveExisting={(aid) => setRemoved((r) => new Set(r).add(aid))}
-          onRemoveStaged={(key) => setStagedImages((s) => s.filter((x) => x.key !== key))}
-          onPreviewExisting={previewExisting}
-          onPreviewStaged={previewStaged}
-        />
 
         {!readOnly && (
           <div className="form-footer">

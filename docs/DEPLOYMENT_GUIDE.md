@@ -224,7 +224,7 @@ IIS or nginx for Windows serving `dist/` and proxying `/api`), following the sam
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | 480 | Session length |
 | `UPLOAD_DIR` | `./uploads` (`/data/uploads` in Docker) | Where certificates/images are stored |
 | `MAX_UPLOAD_BYTES` | 3145728 | Max size per file (3 MB). If raised, also raise `client_max_body_size` in `frontend/nginx.conf` |
-| `MAX_IMAGES` / `MAX_TOOL_IMAGES` / `MAX_CERTIFICATES` | 3 / 1 / 3 | Per-gauge limits (images / Tool-Equipment image / certificate PDFs) |
+| `MAX_TOOL_IMAGES` / `MAX_CERTIFICATES` | 1 / 3 | Per-gauge limits (Tool/Equipment image / certificate PDFs). `MAX_IMAGES` (3) belongs to the hidden secondary image section |
 | `ALLOW_REGISTRATION` | `true` | Open sign-up on/off |
 | `REGISTRATION_ALLOWED_EMAIL_DOMAINS` | empty | Comma-separated allow-list |
 | `TOTP_ISSUER` | `Calibration Log` | Label shown in the authenticator app |

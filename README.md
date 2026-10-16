@@ -13,9 +13,8 @@ Web application to track gauge / instrument calibrations (built from `Calibratio
 ## Pages (mirrors the Excel sheets)
 
 1. **Database table (home)** – all entries, *Add New Entry* button, Excel-style column menus (sort newest/oldest or A–Z, searchable value checklist), global search, pagination, **View** / **Edit** on every row (clicking a row opens it for editing).
-2. **Form** – ASSET #, DESCRIPTION, MANUFACTURER, S/N, GAUGE CODE, LOCATION, STATUS, DATE OF CALIBRATION, FREQUENCY (days), DUE DATE and DAYS LEFT (auto), COMMENTS, up to 3 calibration-certificate PDFs (each with an editable tag; the default tag **LATEST CERT** can be on one PDF only and can be moved; PDFs can be reordered), up to 3 images, plus one separate Tool/Equipment image. Saving returns you to the database page. PDFs/images open in a pop-up and can be downloaded.
-3. **Usage Log** – history of who used which gauge: Employee ID, gauge (Asset #), start and end time. Newest first, filtered by a From/To date picker (maximum 2 months), *Add Log* button.
-4. **Reports** (the "DASHBOARD" sheet) – calibrations due in the next N days (default 10), past-due calibrations, status breakdown, CSV export and print.
+2. **Form** – ASSET #, DESCRIPTION, MANUFACTURER, S/N, GAUGE CODE, LOCATION, STATUS, DATE OF CALIBRATION, FREQUENCY (days), DUE DATE and DAYS LEFT (auto), COMMENTS, up to 3 calibration-certificate PDFs (each with an editable tag; the default tag **LATEST CERT** can be on one PDF only and can be moved; PDFs can be reordered), one Tool/Equipment image. Saving returns you to the database page. PDFs/images open in a pop-up and can be downloaded.
+3. **Reports** (the "DASHBOARD" sheet) – two sub tabs, **Due in 10 days** and **Past Due**, each a full page with the status breakdown, CSV export and print.
 
 ## Quick start – everything in Docker (recommended)
 
@@ -75,3 +74,7 @@ docker-compose.yml, .env.example
 * Asset # is unique (case-insensitive). Asset # and S/N accept letters, digits, space and `. _ / -`.
 * Status and location dropdown values live in `backend/app/constants.py`.
 * Only administrators can delete an entry.
+
+## Usage Log (currently hidden)
+
+The Usage Log backend (`/api/usage-logs`, table `usage_logs`) is kept, but the page is not shown in the frontend. To show it again, re-add the `usage-log` route in `frontend/src/App.tsx` and the nav link in `frontend/src/components/Layout.tsx` (the page itself is still in `frontend/src/pages/UsageLogPage.tsx`).

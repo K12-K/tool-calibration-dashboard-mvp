@@ -237,6 +237,27 @@ textarea { resize: vertical; }
 .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .date-input { padding: 6px 8px; border: 1px solid var(--blue-300); border-radius: 6px; background: #fff; }
 
+/* ---------- database table: fit the screen, no horizontal scroll ---------- */
+.table-wrap.fit { overflow-x: hidden; }
+.grid-fit { table-layout: fixed; width: 100%; }
+.grid-fit th, .grid-fit td { padding: 8px 6px; font-size: 13px; white-space: normal; overflow-wrap: anywhere; }
+.grid-fit thead th { font-size: 11px; letter-spacing: 0.2px; }
+.grid-fit .th-label { text-align: left; line-height: 1.2; }
+.grid-fit td.clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+.grid-fit .cell-clip { display: inline; max-width: none; }
+.grid-fit .sticky-right { position: static; box-shadow: none; }
+.grid-fit .row-actions { gap: 4px; flex-wrap: nowrap; }
+.grid-fit .btn-sm { padding: 4px 7px; font-size: 12px; gap: 4px; }
+.grid-fit .badge { white-space: normal; font-size: 10.5px; padding: 2px 8px; }
+
+/* ---------- reports sub tabs (level 2) ---------- */
+.sub-tabs { display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.sub-tab { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--muted); font: inherit; font-weight: 600; cursor: pointer; }
+.sub-tab:hover { color: var(--blue-700); }
+.sub-tab.active { color: var(--blue-700); border-bottom-color: var(--blue-700); background: var(--blue-100); border-radius: 6px 6px 0 0; }
+.sub-tab-count { padding: 0 8px; border-radius: 10px; background: var(--blue-200); color: var(--blue-900); font-size: 12px; }
+.report-table.full { max-height: calc(100vh - 380px); }
+
 @media print {
   .app-nav, .app-footer, .no-print, .header-user { display: none !important; }
   body { background: #fff; }

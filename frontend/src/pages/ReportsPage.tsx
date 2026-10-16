@@ -33,7 +33,7 @@ function exportCsv(name: string, rows: Gauge[]) {
 function ReportTable({ rows, empty }: { rows: Gauge[]; empty: string }) {
   if (rows.length === 0) return <div className="empty-box">{empty}</div>;
   return (
-    <div className="table-wrap report-table">
+    <div className="table-wrap report-table full">
       <table className="grid">
         <thead>
           <tr>
@@ -71,6 +71,7 @@ const BAR_CLASS: Record<string, string> = {
 export default function ReportsPage() {
   const optionsQ = useQuery({ queryKey: ["options"], queryFn: api.options, staleTime: Infinity });
   const [days, setDays] = useState<number | null>(null);
+  const [tab, setTab] = useState<"due" | "past">("due"); // level-2 tab
   const windowDays = days ?? optionsQ.data?.due_soon_days ?? 10;
 
   const { data, isLoading, isError, error } = useQuery({
@@ -91,21 +92,32 @@ export default function ReportsPage() {
         <h2 className="page-title">Calibration Reports</h2>
         <span className="muted">As of {formatDate(data.generated_on)}</span>
         <div className="spacer" />
-        <label className="inline-field no-print">
-          Due within
-          <input
-            type="number"
-            min={1}
-            max={365}
-            value={windowDays}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              if (Number.isInteger(n) && n >= 1 && n <= 365) setDays(n);
-            }}
-          />
-          days
-        </label>
+        {tab === "due" && (
+          <label className="inline-field no-print">
+            Due within
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={windowDays}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isInteger(n) && n >= 1 && n <= 365) setDays(n);
+              }}
+            />
+            days
+          </label>
+        )}
         <button className="btn btn-outline no-print" onClick={() => window.print()}><Printer size={16} /> Print</button>
+      </div>
+
+      <div className="sub-tabs no-print" role="tablist">
+        <button role="tab" aria-selected={tab === "due"} className={tab === "due" ? "sub-tab active" : "sub-tab"} onClick={() => setTab("due")}>
+          Due in {data.window_days} days <span className="sub-tab-count">{data.due_soon.length}</span>
+        </button>
+        <button role="tab" aria-selected={tab === "past"} className={tab === "past" ? "sub-tab active" : "sub-tab"} onClick={() => setTab("past")}>
+          Past Due <span className="sub-tab-count">{data.past_due.length}</span>
+        </button>
       </div>
 
       <div className="report-grid">
@@ -132,25 +144,27 @@ export default function ReportsPage() {
         </section>
 
         <div className="report-stack">
-          <section className="panel">
-            <div className="panel-head">
-              <h3>CALIBRATION DUE IN NEXT {data.window_days} DAYS <span className="muted">({data.due_soon.length})</span></h3>
-              <button className="btn btn-ghost no-print" onClick={() => exportCsv("calibration-due-soon", data.due_soon)} disabled={!data.due_soon.length}>
-                <Download size={16} /> CSV
-              </button>
-            </div>
-            <ReportTable rows={data.due_soon} empty={`No calibrations due in the next ${data.window_days} days.`} />
-          </section>
-
-          <section className="panel">
-            <div className="panel-head">
-              <h3>PAST DUE CALIBRATION <span className="muted">({data.past_due.length})</span></h3>
-              <button className="btn btn-ghost no-print" onClick={() => exportCsv("calibration-past-due", data.past_due)} disabled={!data.past_due.length}>
-                <Download size={16} /> CSV
-              </button>
-            </div>
-            <ReportTable rows={data.past_due} empty="Nothing is past due." />
-          </section>
+          {tab === "due" ? (
+            <section className="panel">
+              <div className="panel-head">
+                <h3>CALIBRATION DUE IN NEXT {data.window_days} DAYS <span className="muted">({data.due_soon.length})</span></h3>
+                <button className="btn btn-ghost no-print" onClick={() => exportCsv("calibration-due-soon", data.due_soon)} disabled={!data.due_soon.length}>
+                  <Download size={16} /> CSV
+                </button>
+              </div>
+              <ReportTable rows={data.due_soon} empty={`No calibrations due in the next ${data.window_days} days.`} />
+            </section>
+          ) : (
+            <section className="panel">
+              <div className="panel-head">
+                <h3>PAST DUE CALIBRATION <span className="muted">({data.past_due.length})</span></h3>
+                <button className="btn btn-ghost no-print" onClick={() => exportCsv("calibration-past-due", data.past_due)} disabled={!data.past_due.length}>
+                  <Download size={16} /> CSV
+                </button>
+              </div>
+              <ReportTable rows={data.past_due} empty="Nothing is past due." />
+            </section>
+          )}
         </div>
       </div>
       <p className="hint">Gauges marked OUT OF SERVICE, REFERENCE ONLY or MISSING/LOST are excluded from the due-soon and past-due lists.</p>

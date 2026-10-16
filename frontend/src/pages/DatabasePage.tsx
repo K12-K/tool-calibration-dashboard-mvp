@@ -25,6 +25,16 @@ const COLUMNS: ColumnDef[] = [
   { key: "comments", label: "COMMENTS", kind: "longtext" },
 ];
 
+// column widths (% of the table) so the whole table fits on screen without a horizontal scroll bar
+const COL_WIDTHS: Record<string, string> = {
+  asset_no: "7%", description: "11%", manufacturer: "8%", serial_number: "7%", gauge_code: "6%",
+  calibration_date: "8%", frequency_days: "6%", due_date: "8%", days_left: "5%", status: "9%",
+  location: "7%", comments: "8%",
+};
+const ACTIONS_WIDTH = "10%";
+// long text is shortened with "…" (full text on hover)
+const CLIP_COLUMNS = ["description", "manufacturer", "serial_number", "gauge_code", "location", "comments"];
+
 const STORAGE_KEY = "calibration.table.v2"; // v2: frequency column renamed (months -> days)
 const DEFAULT_STATE: ListParams = {
   page: 1,
@@ -138,8 +148,12 @@ export default function DatabasePage() {
       {notice && <div className="alert alert-success">{notice}</div>}
       {isError && <div className="alert alert-error">{error instanceof Error ? error.message : "Failed to load"}</div>}
 
-      <div className="table-wrap">
-        <table className="grid">
+      <div className="table-wrap fit">
+        <table className="grid grid-fit">
+          <colgroup>
+            {COLUMNS.map((c) => <col key={c.key} style={{ width: COL_WIDTHS[c.key] }} />)}
+            <col style={{ width: ACTIONS_WIDTH }} />
+          </colgroup>
           <thead>
             <tr>
               {COLUMNS.map((c) => (
@@ -182,7 +196,13 @@ export default function DatabasePage() {
             {data?.items.map((g) => (
               <tr key={g.id} className="row-click" onClick={() => navigate(`/gauges/${g.id}/edit`)}>
                 {COLUMNS.map((c) => (
-                  <td key={c.key} className={c.key === "asset_no" ? "strong" : undefined}>{renderCell(c, g)}</td>
+                  <td
+                    key={c.key}
+                    className={[c.key === "asset_no" ? "strong" : "", CLIP_COLUMNS.includes(c.key) ? "clip" : ""].filter(Boolean).join(" ") || undefined}
+                    title={CLIP_COLUMNS.includes(c.key) ? ((g as unknown as Record<string, string | null>)[c.key] ?? "") : undefined}
+                  >
+                    {renderCell(c, g)}
+                  </td>
                 ))}
                 <td className="sticky-right" onClick={(e) => e.stopPropagation()}>
                   <div className="row-actions">
