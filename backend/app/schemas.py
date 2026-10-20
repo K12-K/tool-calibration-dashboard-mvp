@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .constants import LOCATIONS, MAX_TAG_LENGTH, STATUSES, normalize_tag
+from .constants import LOCATIONS, MAX_TAG_LENGTH, STATUS_CALIBRATED, STATUSES, normalize_tag
 
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._/\-]*$")  # "alpha numeric" (+ common separators)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -76,6 +76,14 @@ class GaugeIn(BaseModel):
         if v is not None and not (MIN_DATE <= v <= MAX_DATE):
             raise ValueError("Date is out of range")
         return v
+
+    @model_validator(mode="after")
+    def _calibration_only_when_calibrated(self):
+        # date of calibration / frequency (and therefore due date) apply to CALIBRATED gauges only
+        if self.status != STATUS_CALIBRATED:
+            self.calibration_date = None
+            self.frequency_days = None
+        return self
 
 
 class AttachmentOut(BaseModel):

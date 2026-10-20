@@ -167,7 +167,7 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
-      <p className="hint">Gauges marked OUT OF SERVICE, REFERENCE ONLY or MISSING/LOST are excluded from the due-soon and past-due lists.</p>
+      <p className="hint">Gauges marked OUT OF SERVICE, REFERENCE ONLY, MISSING/LOST or OUT FOR CALIBRATION are excluded from the due-soon and past-due lists.</p>
     </div>
   );
 }

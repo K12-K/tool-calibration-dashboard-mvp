@@ -53,6 +53,7 @@ function validate(f: FormState): Record<string, string> {
   if (!f.asset_no.trim()) e.asset_no = "Asset # is required";
   else if (!ID_RE.test(f.asset_no.trim())) e.asset_no = "Letters, numbers, spaces and . _ / - only";
   if (f.serial_number.trim() && !ID_RE.test(f.serial_number.trim())) e.serial_number = "Letters, numbers, spaces and . _ / - only";
+  if (f.status !== "CALIBRATED") return e; // calibration fields are not used for other statuses
   const freq = f.frequency_days.trim();
   if (freq) {
     const n = Number(freq);
@@ -71,8 +72,8 @@ function toInput(f: FormState): GaugeInput {
     manufacturer: t(f.manufacturer),
     serial_number: t(f.serial_number),
     gauge_code: t(f.gauge_code),
-    calibration_date: f.calibration_date || null,
-    frequency_days: f.frequency_days.trim() ? Number(f.frequency_days) : null,
+    calibration_date: f.status === "CALIBRATED" && f.calibration_date ? f.calibration_date : null,
+    frequency_days: f.status === "CALIBRATED" && f.frequency_days.trim() ? Number(f.frequency_days) : null,
     status: f.status,
     location: t(f.location),
     comments: t(f.comments),
@@ -127,14 +128,15 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   useEffect(() => {
     const g = gaugeQ.data;
     if (!g) return;
+    const calibrated = HIDDEN_STATUSES.includes(g.status) || g.status === "CALIBRATED"; // legacy PAST DUE counts as CALIBRATED
     setForm({
       asset_no: g.asset_no,
       description: g.description ?? "",
       manufacturer: g.manufacturer ?? "",
       serial_number: g.serial_number ?? "",
       gauge_code: g.gauge_code ?? "",
-      calibration_date: g.calibration_date ?? "",
-      frequency_days: g.frequency_days ? String(g.frequency_days) : "",
+      calibration_date: calibrated ? g.calibration_date ?? "" : "",
+      frequency_days: calibrated && g.frequency_days ? String(g.frequency_days) : "",
       status: HIDDEN_STATUSES.includes(g.status) ? "CALIBRATED" : g.status, // legacy entries saved as PAST DUE
       location: g.location ?? "",
       comments: g.comments ?? "",
@@ -165,6 +167,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
   const freqN = /^\d+$/.test(form.frequency_days.trim()) ? Number(form.frequency_days) : null;
   const dueDate = form.calibration_date && freqN ? addDays(form.calibration_date, freqN) : null;
   const daysLeft = dueDate ? daysUntil(dueDate) : null;
+  const notCalibrated = form.status !== "CALIBRATED"; // date, frequency and due date only apply to CALIBRATED
   const overdueHint = form.status === "CALIBRATED" && daysLeft !== null && daysLeft < 0;
 
   const set = (key: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -174,6 +177,20 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
       if (!er[key]) return er;
       const next = { ...er };
       delete next[key];
+      return next;
+    });
+  };
+
+  const changeStatus = (e: ChangeEvent<HTMLSelectElement>) => {
+    const status = e.target.value;
+    setForm((f) => (status === "CALIBRATED" ? { ...f, status } : { ...f, status, calibration_date: "", frequency_days: "" }));
+    setErrors((er) => {
+      const next = { ...er };
+      delete next.status;
+      if (status !== "CALIBRATED") {
+        delete next.calibration_date;
+        delete next.frequency_days;
+      }
       return next;
     });
   };
@@ -415,15 +432,15 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
 
           <div className="form-col">
             <Field label="STATUS" error={errors.status}>
-              <select value={form.status} onChange={set("status")} disabled={dis}>
+              <select value={form.status} onChange={changeStatus} disabled={dis}>
                 {opts.statuses.filter((s) => !HIDDEN_STATUSES.includes(s)).map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
-            <Field label="DATE OF CALIBRATION" error={errors.calibration_date}>
-              <input type="date" value={form.calibration_date} onChange={set("calibration_date")} disabled={dis} min="2000-01-01" max="2100-12-31" />
+            <Field label="DATE OF CALIBRATION" error={errors.calibration_date} hint={notCalibrated ? "Only used when STATUS is CALIBRATED" : undefined}>
+              <input type="date" value={form.calibration_date} onChange={set("calibration_date")} disabled={dis || notCalibrated} min="2000-01-01" max="2100-12-31" />
             </Field>
-            <Field label="FREQUENCY (DAYS)" error={errors.frequency_days} hint="Choose a preset or type a number of days">
-              <input type="number" min={1} max={3650} step={1} list="freq-presets" value={form.frequency_days} onChange={set("frequency_days")} disabled={dis} />
+            <Field label="FREQUENCY (DAYS)" error={errors.frequency_days} hint={notCalibrated ? "Only used when STATUS is CALIBRATED" : "Choose a preset or type a number of days"}>
+              <input type="number" min={1} max={3650} step={1} list="freq-presets" value={form.frequency_days} onChange={set("frequency_days")} disabled={dis || notCalibrated} />
               <datalist id="freq-presets">{FREQ_PRESETS.map((n) => <option key={n} value={n} />)}</datalist>
             </Field>
             <Field label="DUE DATE" hint="Auto calculated: date of calibration + frequency">

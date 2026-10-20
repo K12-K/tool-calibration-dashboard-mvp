@@ -21,7 +21,7 @@ LOCATIONS = [
 
 # Gauges in these statuses are not expected to be calibrated, so they are left
 # out of the "due soon" / "past due" reports.
-EXCLUDED_FROM_REPORTS = ["OUT OF SERVICE", "REFERENCE ONLY", "MISSING/LOST"]
+EXCLUDED_FROM_REPORTS = ["OUT OF SERVICE", "REFERENCE ONLY", "MISSING/LOST", "OUT FOR CALIBRATION"]
 
 STATUS_CALIBRATED = "CALIBRATED"
 STATUS_PAST_DUE = "PAST DUE"

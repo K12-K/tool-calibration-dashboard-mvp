@@ -69,8 +69,9 @@ docker-compose.yml, .env.example
 ## Business rules worth knowing
 
 * **Due date** = date of calibration + frequency (days). **Days left** = due date − today (recalculated on every request, never stale).
+* **Date of calibration, frequency and due date** apply only to status **CALIBRATED**; for every other status those fields stay visible but disabled and empty (the server also stores them empty).
 * A gauge whose status is **CALIBRATED** but whose due date has passed is *displayed* as **PAST DUE** (the saved status is not changed).
-* Gauges that are **OUT OF SERVICE**, **REFERENCE ONLY** or **MISSING/LOST** are left out of the due-soon / past-due reports.
+* Gauges that are **OUT OF SERVICE**, **REFERENCE ONLY**, **MISSING/LOST** or **OUT FOR CALIBRATION** are left out of the due-soon / past-due reports.
 * Asset # is unique (case-insensitive). Asset # and S/N accept letters, digits, space and `. _ / -`.
 * Status and location dropdown values live in `backend/app/constants.py`.
 * Only administrators can delete an entry.
