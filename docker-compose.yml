@@ -38,8 +38,10 @@ services:
       TOTP_ISSUER: ${TOTP_ISSUER:-Calibration Log}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
       TZ: ${TZ:-UTC}
+      LICENSE_FILE: /run/licenses/license.lic
     volumes:
       - uploads:/data/uploads
+      - ./licenses/license.lic:/run/licenses/license.lic:ro
 
   web:
     build: ./frontend
