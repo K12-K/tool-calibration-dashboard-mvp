@@ -51,6 +51,20 @@ def init_db(retries: int = 20, delay: float = 2.0) -> None:
 def _light_migrations(conn) -> None:
     _migrate_frequency_to_days(conn)
     _migrate_attachment_columns(conn)
+    _ensure_unique_asset_index(conn)
+
+
+def _ensure_unique_asset_index(conn) -> None:
+    """Asset # must be unique (case-insensitive) at database level too. If old data already contains
+    duplicates the index cannot be built: log them so they can be fixed, and carry on."""
+    try:
+        with conn.begin_nested():
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_gauges_asset_no_lower ON gauges (lower(asset_no))"))
+    except Exception:  # noqa: BLE001
+        dups = conn.execute(
+            text("SELECT lower(asset_no) FROM gauges GROUP BY lower(asset_no) HAVING count(*) > 1")
+        ).scalars().all()
+        log.error("Duplicate Asset # values exist and must be fixed manually: %s", ", ".join(dups))
 
 
 def _migrate_frequency_to_days(conn) -> None:

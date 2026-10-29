@@ -164,6 +164,20 @@ def _ensure_unique_asset(db: Session, asset_no: str, exclude_id: int | None = No
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Asset # already exists")
 
 
+@router.get("/asset-available")
+def asset_available(
+    asset_no: str = Query(..., min_length=1, max_length=100),
+    exclude_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """Used by the form to warn about a duplicate Asset # before Save."""
+    normalized = " ".join(asset_no.split())
+    stmt = select(Gauge.id).where(func.lower(Gauge.asset_no) == normalized.lower())
+    if exclude_id is not None:
+        stmt = stmt.where(Gauge.id != exclude_id)
+    return {"available": db.scalar(stmt.limit(1)) is None}
+
+
 @router.get("/{gauge_id}", response_model=GaugeDetail)
 def get_gauge(gauge_id: int, db: Session = Depends(get_db)):
     return _get_or_404(db, gauge_id)

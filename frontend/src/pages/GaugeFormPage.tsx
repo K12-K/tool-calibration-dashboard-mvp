@@ -181,6 +181,18 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
     });
   };
 
+  // warn about a duplicate Asset # as soon as the field is left (the server re-checks on Save)
+  const checkAssetUnique = async () => {
+    const value = form.asset_no.trim();
+    if (!value || !ID_RE.test(value)) return;
+    try {
+      const res = await api.assetAvailable(value, gaugeId);
+      if (!res.available) setErrors((er) => ({ ...er, asset_no: "This Asset # already exists" }));
+    } catch {
+      /* ignore - Save checks again */
+    }
+  };
+
   const changeStatus = (e: ChangeEvent<HTMLSelectElement>) => {
     const status = e.target.value;
     setForm((f) => (status === "CALIBRATED" ? { ...f, status } : { ...f, status, calibration_date: "", frequency_days: "" }));
@@ -408,7 +420,7 @@ export default function GaugeFormPage({ mode }: { mode: Mode }) {
         <div className="form-grid">
           <div className="form-col">
             <Field label="ASSET #" error={errors.asset_no}>
-              <input value={form.asset_no} onChange={set("asset_no")} disabled={dis} maxLength={100} placeholder="e.g. CAL-0001" />
+              <input value={form.asset_no} onChange={set("asset_no")} onBlur={checkAssetUnique} disabled={dis} maxLength={100} placeholder="e.g. CAL-0001" />
             </Field>
             <Field label="DESCRIPTION" error={errors.description}>
               <input value={form.description} onChange={set("description")} disabled={dis} maxLength={500} />

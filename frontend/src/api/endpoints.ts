@@ -46,6 +46,8 @@ export const api = {
       },
     }),
   columnValues: (column: string) => request<ColumnValues>(`/gauges/columns/${column}/values`),
+  assetAvailable: (asset_no: string, excludeId?: number) =>
+    request<{ available: boolean }>("/gauges/asset-available", { query: { asset_no, exclude_id: excludeId } }),
   getGauge: (id: number) => request<GaugeDetail>(`/gauges/${id}`),
   createGauge: (data: GaugeInput) => request<GaugeDetail>("/gauges", { method: "POST", body: data }),
   updateGauge: (id: number, data: GaugeInput) => request<GaugeDetail>(`/gauges/${id}`, { method: "PUT", body: data }),

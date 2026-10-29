@@ -35,7 +35,7 @@ class GaugeIn(BaseModel):
     @field_validator("asset_no", mode="before")
     @classmethod
     def _strip_asset(cls, v):
-        return v.strip() if isinstance(v, str) else v
+        return " ".join(v.split()) if isinstance(v, str) else v  # trim + collapse repeated spaces
 
     @field_validator("description", "manufacturer", "serial_number", "gauge_code", "location", "comments", mode="before")
     @classmethod
